@@ -1,0 +1,21 @@
+xrpl-stream/
+├── contracts/               # Logical "contracts" (scripts for XRPL transactions)
+│   ├── createChannel.js     # Opens and funds the channel
+│   ├── fundChannel.js       # Adds more XRP to an existing channel
+│   └── claimChannel.js      # Finalizes the stream and payouts
+├── src/
+│   ├── core/
+│   │   ├── signer.js        # Handles off-chain signing of payment claims
+│   │   ├── validator.js     # Receiver-side logic to verify signatures
+│   │   └── channelStore.js  # Local DB/Cache logic for tracking channel state
+│   ├── api/
+│   │   ├── streamRoutes.js  # API endpoints for starting/stopping streams
+│   │   └── middleware.js    # Auth and validation
+│   └── utils/
+│       ├── xrplClient.js    # Singleton for xrpl.js library connection
+│       └── converters.js    # Drops to XRP and time-to-value calculations
+├── public/                  # Frontend assets (if applicable)
+├── .env                     # Private keys and Network URLs (testnet/mainnet)
+├── config.js                # Global constants (e.g., SettleDelay, MinContext)
+├── server.js                # Entry point for the backend
+└── package.json             # Dependencies (xrpl.js, dotenv, express)

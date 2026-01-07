@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XRPL Streaming Payments</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 800px;
+            width: 100%;
+        }
+        
+        h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+        
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 1.1em;
+        }
+        
+        .info-section {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .info-section h2 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+        
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .info-item:last-child {
+            border-bottom: none;
+        }
+        
+        .info-label {
+            font-weight: 600;
+            color: #555;
+        }
+        
+        .info-value {
+            color: #667eea;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .endpoints {
+            list-style: none;
+        }
+        
+        .endpoints li {
+            background: white;
+            padding: 12px;
+            margin: 8px 0;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+        
+        .method {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-weight: bold;
+            margin-right: 10px;
+            font-size: 0.85em;
+        }
+        
+        .method.get {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .method.post {
+            background: #cce5ff;
+            color: #004085;
+        }
+        
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .feature {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .feature-icon {
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+        
+        .feature-title {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+        }
+        
+        .feature-desc {
+            font-size: 0.9em;
+            color: #666;
+        }
+        
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 2px solid #e0e0e0;
+            color: #666;
+        }
+        
+        .footer a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            background: #d4edda;
+            color: #155724;
+            border-radius: 12px;
+            font-size: 0.85em;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌊 XRPL Streaming Payments</h1>
+        <p class="subtitle">General purpose streaming payment system using XRPL payment channels</p>
+        
+        <div class="info-section">
+            <h2>System Status</h2>
+            <div class="info-item">
+                <span class="info-label">Status</span>
+                <span class="status-badge">✓ Online</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">API Version</span>
+                <span class="info-value">v1.0.0</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Network</span>
+                <span class="info-value">Testnet</span>
+            </div>
+        </div>
+        
+        <div class="info-section">
+            <h2>Key Features</h2>
+            <div class="features">
+                <div class="feature">
+                    <div class="feature-icon">⚡</div>
+                    <div class="feature-title">Zero Fees</div>
+                    <div class="feature-desc">Off-chain streaming with no transaction fees</div>
+                </div>
+                <div class="feature">
+                    <div class="feature-icon">🔒</div>
+                    <div class="feature-title">Secure</div>
+                    <div class="feature-desc">Cryptographic signatures ensure safety</div>
+                </div>
+                <div class="feature">
+                    <div class="feature-icon">🚀</div>
+                    <div class="feature-title">Real-time</div>
+                    <div class="feature-desc">Instant micro-payments per second</div>
+                </div>
+                <div class="feature">
+                    <div class="feature-icon">💎</div>
+                    <div class="feature-title">Flexible</div>
+                    <div class="feature-desc">Configurable rates and durations</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="info-section">
+            <h2>API Endpoints</h2>
+            <ul class="endpoints">
+                <li><span class="method post">POST</span>/api/stream/start - Start streaming session</li>
+                <li><span class="method post">POST</span>/api/stream/stop - Stop streaming session</li>
+                <li><span class="method get">GET</span>/api/stream/claim - Generate signed claim</li>
+                <li><span class="method post">POST</span>/api/stream/validate - Validate a claim</li>
+                <li><span class="method post">POST</span>/api/stream/finalize - Finalize on-chain</li>
+                <li><span class="method get">GET</span>/api/stream/status - Get channel status</li>
+                <li><span class="method get">GET</span>/api/stream/history - Get claim history</li>
+            </ul>
+        </div>
+        
+        <div class="footer">
+            <p>Built with ❤️ using <a href="https://xrpl.org/" target="_blank">XRPL</a></p>
+            <p style="margin-top: 10px; font-size: 0.9em;">
+                For API documentation, visit <a href="/api">API Base</a> | <a href="/health">Health Check</a>
+            </p>
+        </div>
+    </div>
+</body>
+</html>
+
