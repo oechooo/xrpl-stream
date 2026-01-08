@@ -33,17 +33,33 @@ router.post('/start', async (req, res) => {
   try {
     const { channelId, walletSeed, ratePerSecond, role, publicKey } = req.body;
     
-    if (!channelId || !ratePerSecond || !role) {
+    // Basic validation
+    if (!channelId || !role) {
       return res.status(400).json({
-        error: 'Missing required fields: channelId, ratePerSecond, role',
+        error: 'Missing required fields: channelId, role',
       });
     }
     
-    // Check if session already exists
-    if (activeSessions.has(channelId)) {
+    // Role-specific validation
+    if (role === 'sender' && !ratePerSecond) {
+      return res.status(400).json({
+        error: 'Missing required field for sender: ratePerSecond',
+      });
+    }
+    
+    if (role === 'receiver' && !publicKey) {
+      return res.status(400).json({
+        error: 'Missing required field for receiver: publicKey',
+      });
+    }
+    
+    // Check if THIS ROLE already has an active session (allow both sender and receiver on same channel)
+    const sessionKey = `${channelId}-${role}`;
+    if (activeSessions.has(sessionKey)) {
       return res.status(409).json({
-        error: 'Stream already active for this channel',
+        error: `${role.charAt(0).toUpperCase() + role.slice(1)} stream already active for this channel`,
         channelId,
+        role,
       });
     }
     
@@ -68,8 +84,10 @@ router.post('/start', async (req, res) => {
       const signer = new StreamingSigner(wallet, channelId, ratePerSecond);
       signer.start();
       
-      activeSessions.set(channelId, {
+      const sessionKey = `${channelId}-sender`;
+      activeSessions.set(sessionKey, {
         role: 'sender',
+        channelId,
         signer,
         channelInfo,
         startTime: Date.now(),
@@ -95,8 +113,10 @@ router.post('/start', async (req, res) => {
         maxClaimsPerMinute: 60,
       });
       
-      activeSessions.set(channelId, {
+      const sessionKey = `${channelId}-receiver`;
+      activeSessions.set(sessionKey, {
         role: 'receiver',
+        channelId,
         validator,
         channelInfo,
         startTime: Date.now(),
@@ -141,50 +161,64 @@ router.post('/start', async (req, res) => {
  */
 router.post('/stop', async (req, res) => {
   try {
-    const { channelId } = req.body;
+    const { channelId, role } = req.body;
     
     if (!channelId) {
       return res.status(400).json({ error: 'channelId required' });
     }
     
-    const session = activeSessions.get(channelId);
+    // If role specified, stop that specific role; otherwise try to stop both
+    const rolesToStop = role ? [role] : ['sender', 'receiver'];
+    const results = [];
     
-    if (!session) {
+    for (const r of rolesToStop) {
+      const sessionKey = `${channelId}-${r}`;
+      const session = activeSessions.get(sessionKey);
+      
+      if (session) {
+        if (session.role === 'sender') {
+          session.signer.stop();
+          const finalAmount = session.signer.getCurrentAmount();
+          
+          activeSessions.delete(sessionKey);
+          
+          results.push({
+            role: 'sender',
+            finalAmount,
+            finalXRP: parseInt(finalAmount) / 1000000,
+            duration: Date.now() - session.startTime,
+          });
+          
+          console.log(`✓ Stopped sender stream for channel ${channelId}`);
+          
+        } else if (session.role === 'receiver') {
+          const stats = session.validator.getStats();
+          
+          activeSessions.delete(sessionKey);
+          
+          results.push({
+            role: 'receiver',
+            stats,
+            duration: Date.now() - session.startTime,
+          });
+          
+          console.log(`✓ Stopped receiver stream for channel ${channelId}`);
+        }
+      }
+    }
+    
+    if (results.length === 0) {
       return res.status(404).json({
-        error: 'No active stream found for this channel',
+        error: role ? `No active ${role} stream found for this channel` : 'No active streams found for this channel',
       });
     }
     
-    if (session.role === 'sender') {
-      session.signer.stop();
-      const finalAmount = session.signer.getCurrentAmount();
-      
-      activeSessions.delete(channelId);
-      
-      res.json({
-        success: true,
-        message: 'Sender stream stopped',
-        channelId,
-        finalAmount,
-        finalXRP: parseInt(finalAmount) / 1000000,
-        duration: Date.now() - session.startTime,
-      });
-      
-    } else if (session.role === 'receiver') {
-      const stats = session.validator.getStats();
-      
-      activeSessions.delete(channelId);
-      
-      res.json({
-        success: true,
-        message: 'Receiver stream stopped',
-        channelId,
-        stats,
-        duration: Date.now() - session.startTime,
-      });
-    }
-    
-    console.log(`✓ Stopped stream for channel ${channelId}`);
+    res.json({
+      success: true,
+      message: `Stream(s) stopped`,
+      channelId,
+      stopped: results,
+    });
     
   } catch (error) {
     console.error('Error stopping stream:', error);
@@ -209,7 +243,8 @@ router.get('/claim', async (req, res) => {
       return res.status(400).json({ error: 'channelId required' });
     }
     
-    const session = activeSessions.get(channelId);
+    const sessionKey = `${channelId}-sender`;
+    const session = activeSessions.get(sessionKey);
     
     if (!session || session.role !== 'sender') {
       return res.status(404).json({
@@ -262,7 +297,8 @@ router.post('/validate', async (req, res) => {
       });
     }
     
-    const session = activeSessions.get(channelId);
+    const sessionKey = `${channelId}-receiver`;
+    const session = activeSessions.get(sessionKey);
     
     // Can validate even without active session, but use validator if available
     let validationResult;
@@ -383,7 +419,12 @@ router.get('/status', async (req, res) => {
       return res.status(400).json({ error: 'channelId required' });
     }
     
-    const session = activeSessions.get(channelId);
+    // Check for both sender and receiver sessions
+    const senderKey = `${channelId}-sender`;
+    const receiverKey = `${channelId}-receiver`;
+    const senderSession = activeSessions.get(senderKey);
+    const receiverSession = activeSessions.get(receiverKey);
+    
     const store = getChannelStore();
     const stats = await store.getChannelStats(channelId);
     const channelInfo = await getChannelInfo(channelId);
@@ -394,11 +435,16 @@ router.get('/status', async (req, res) => {
     res.json({
       success: true,
       channelId,
-      activeSession: session ? {
-        role: session.role,
-        startTime: session.startTime,
-        duration: Date.now() - session.startTime,
-      } : null,
+      activeSessions: {
+        sender: senderSession ? {
+          startTime: senderSession.startTime,
+          duration: Date.now() - senderSession.startTime,
+        } : null,
+        receiver: receiverSession ? {
+          startTime: receiverSession.startTime,
+          duration: Date.now() - receiverSession.startTime,
+        } : null,
+      },
       ledgerInfo: channelInfo,
       localStats: stats,
       finalizationRecommendation: finalizationCheck,

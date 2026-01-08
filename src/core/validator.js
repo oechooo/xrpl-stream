@@ -24,13 +24,17 @@ async function validateClaim(channelId, amount, signature, publicKey, channelInf
     console.log(`Validating claim for channel ${channelId}...`);
     console.log(`  Amount: ${parseInt(amount) / 1000000} XRP`);
     
-    // 1. Verify the signature is cryptographically valid
-    const channelIdHex = channelId;
-    const amountHex = BigInt(amount).toString(16).toUpperCase().padStart(16, '0');
-    const claimMessage = 'CLM\0' + channelIdHex + amountHex;
-    const claimHex = Buffer.from(claimMessage).toString('hex').toUpperCase();
+    // 1. Verify the signature is cryptographically valid using xrpl.js built-in function
+    // NOTE: verifyPaymentChannelClaim expects XRP amount, not drops!
+    const xrpAmount = (parseInt(amount) / 1000000).toString();
     
-    const signatureValid = xrpl.verifySignature(claimHex, signature, publicKey);
+    console.log('  Validation details:');
+    console.log('    Channel ID:', channelId);
+    console.log('    Amount:', amount, 'drops =', xrpAmount, 'XRP');
+    console.log('    Signature length:', signature.length);
+    console.log('    Public key length:', publicKey.length);
+    
+    const signatureValid = xrpl.verifyPaymentChannelClaim(channelId, xrpAmount, signature, publicKey);
     
     if (!signatureValid) {
       return {
@@ -97,9 +101,10 @@ async function validateClaim(channelId, amount, signature, publicKey, channelInf
     
   } catch (error) {
     console.error('Error validating claim:', error);
+    const errorMessage = error?.message || error?.toString() || 'Unknown error';
     return {
       valid: false,
-      reason: `Validation error: ${error.message}`,
+      reason: `Validation error: ${errorMessage}`,
       channelId,
       amount,
     };

@@ -7,7 +7,8 @@
  */
 
 const xrpl = require('xrpl');
-const { encode, decode } = require('ripple-binary-codec');
+const { encodeForSigningClaim } = require('ripple-binary-codec');
+const { sign: signData } = require('ripple-keypairs');
 
 /**
  * Creates a signed claim for a specific amount
@@ -20,19 +21,18 @@ const { encode, decode } = require('ripple-binary-codec');
  */
 function signClaim(wallet, channelId, amount) {
   try {
-    // Create the claim object that needs to be signed
-    // Format: CLM\0 + channel_id + amount_in_drops (in hex)
-    const channelIdHex = channelId;
-    const amountHex = BigInt(amount).toString(16).toUpperCase().padStart(16, '0');
+    // Use ripple-binary-codec's encodeForSigningClaim for correct format
+    // This is the same method used by xrpl.js internally
+    const signingData = encodeForSigningClaim({
+      channel: channelId,
+      amount: amount.toString(),
+    });
     
-    // Construct the claim message
-    const claimMessage = 'CLM\0' + channelIdHex + amountHex;
-    const claimHex = Buffer.from(claimMessage).toString('hex').toUpperCase();
-    
-    // Sign the claim with the wallet's private key
-    const signature = wallet.sign(claimHex);
+    // Sign using ripple-keypairs
+    const signature = signData(signingData, wallet.privateKey);
     
     console.log(`✓ Claim signed: ${parseInt(amount) / 1000000} XRP`);
+    console.log(`  Signing data length: ${signingData.length} chars`);
     
     return {
       channelId,
@@ -143,14 +143,10 @@ function generateStreamingClaims(wallet, channelId, options = {}) {
  */
 function verifyClaim(channelId, amount, signature, publicKey) {
   try {
-    const channelIdHex = channelId;
-    const amountHex = BigInt(amount).toString(16).toUpperCase().padStart(16, '0');
-    const claimMessage = 'CLM\0' + channelIdHex + amountHex;
-    const claimHex = Buffer.from(claimMessage).toString('hex').toUpperCase();
-    
-    // Verify signature using xrpl library
-    const isValid = xrpl.verifySignature(claimHex, signature, publicKey);
-    
+    // verifyPaymentChannelClaim expects XRP, not drops!
+    // Convert drops to XRP: divide by 1,000,000
+    const xrpAmount = (parseInt(amount) / 1000000).toString();
+    const isValid = xrpl.verifyPaymentChannelClaim(channelId, xrpAmount, signature, publicKey);
     return isValid;
   } catch (error) {
     console.error('Error verifying claim:', error);
