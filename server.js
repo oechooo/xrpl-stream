@@ -8,7 +8,7 @@ const config = require("./config");
 const { getClientManager } = require("./src/utils/xrplClient");
 const streamRoutes = require("./src/api/streamRoutes");
 const rlusdRoutes = require("./src/api/rlusdRoutes");
-const m2mDemoRoutes = require('./src/api/m2mDemoRoutes');
+const m2mDemoRoutes = require("./src/api/m2mDemoRoutes");
 const {
   configureCORS,
   createRateLimiter,
@@ -95,7 +95,7 @@ if (config.security.enableRateLimiting) {
 }
 
 // M2M Demo routes - mounted BEFORE auth middleware (public demo)
-app.use('/api/m2m', m2mDemoRoutes);
+app.use("/api/m2m", m2mDemoRoutes);
 
 // Authentication middleware (skip health checks)
 if (config.security.enableApiKeyAuth) {
