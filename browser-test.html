@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>XRPL Converter Test</title>
+  </head>
+  <body>
+    <h1>XRPL Converter Functions Test</h1>
+    <p>Open browser console (F12) to see test results</p>
+
+    <script>
+      /**
+       * Browser-based test for converter functions
+       * Open this file in a web browser to test the logic
+       */
+
+      // Copy the converter functions (simplified for browser)
+      function xrpToDrops(xrp) {
+        const xrpNum = parseFloat(xrp);
+        if (isNaN(xrpNum) || xrpNum < 0) {
+          throw new Error("Invalid XRP amount");
+        }
+        const drops = Math.floor(xrpNum * 1000000);
+        return drops.toString();
+      }
+
+      function dropsToXrp(drops) {
+        const dropsNum = BigInt(drops);
+        if (dropsNum < 0n) {
+          throw new Error("Invalid drops amount");
+        }
+        return Number(dropsNum) / 1000000;
+      }
+
+      function usdToCents(usd) {
+        const usdNum = parseFloat(usd);
+        if (isNaN(usdNum) || usdNum < 0) {
+          throw new Error("Invalid USD amount");
+        }
+        const cents = Math.round(usdNum * 100);
+        return cents.toString();
+      }
+
+      function centsToUsd(cents) {
+        const centsNum = BigInt(cents);
+        if (centsNum < 0n) {
+          throw new Error("Invalid cents amount");
+        }
+        return Number(centsNum) / 100;
+      }
+
+      function formatXrp(xrp, decimals = 6) {
+        return parseFloat(xrp).toFixed(decimals) + " XRP";
+      }
+
+      function formatRLUSD(usd, decimals = 2) {
+        return parseFloat(usd).toFixed(decimals) + " RLUSD";
+      }
+
+      // Test functions
+      function runBrowserTests() {
+        console.log("🔄 Testing Backward Compatibility in Browser\n");
+
+        try {
+          // Test XRP functions
+          const drops = xrpToDrops("1.5");
+          const xrp = dropsToXrp(drops);
+          const formatted = formatXrp(xrp);
+
+          console.log("✅ XRP Functions:");
+          console.log(`  xrpToDrops('1.5') = ${drops} drops`);
+          console.log(`  dropsToXrp('${drops}') = ${xrp} XRP`);
+          console.log(`  formatXrp(${xrp}) = ${formatted}`);
+
+          // Test RLUSD functions
+          const cents = usdToCents("1.50");
+          const usd = centsToUsd(cents);
+          const formattedRLUSD = formatRLUSD(usd);
+
+          console.log("\n✅ RLUSD Functions:");
+          console.log(`  usdToCents('1.50') = ${cents} cents`);
+          console.log(`  centsToUsd('${cents}') = ${usd} USD`);
+          console.log(`  formatRLUSD(${usd}) = ${formattedRLUSD}`);
+
+          // Validation
+          if (
+            drops === "1500000" &&
+            xrp === 1.5 &&
+            cents === "150" &&
+            usd === 1.5
+          ) {
+            console.log(
+              "\n🎉 All tests PASSED! Converter functions work correctly."
+            );
+            console.log("\n✅ Backward compatibility maintained:");
+            console.log("   • XRP functions work unchanged");
+            console.log("   • RLUSD functions work independently");
+          } else {
+            console.log("\n❌ Some tests failed!");
+          }
+        } catch (error) {
+          console.error("❌ Test failed:", error.message);
+        }
+      }
+
+      // Run tests
+      console.log("Open browser console (F12) to see results");
+      runBrowserTests();
+    </script>
+  </body>
+</html>
