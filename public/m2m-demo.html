@@ -4,25 +4,28 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>M2M Streaming Demo | XRPL</title>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg-primary: #0a0e17;
-      --bg-secondary: #111827;
-      --bg-card: #1a2234;
-      --bg-elevated: #243044;
-      --accent-cyan: #00d4ff;
-      --accent-magenta: #ff00aa;
-      --accent-green: #00ff88;
-      --accent-yellow: #ffcc00;
+      --bg-primary: #050810;
+      --bg-secondary: #0d1320;
+      --bg-card: #131b2e;
+      --bg-elevated: #1a2540;
+      --bg-input: #0a0f1a;
+      --accent-cyan: #00e5ff;
+      --accent-magenta: #ff2d92;
+      --accent-green: #00ff9d;
+      --accent-yellow: #ffd000;
       --accent-orange: #ff6b35;
+      --accent-purple: #a855f7;
       --text-primary: #f0f4f8;
       --text-secondary: #8899aa;
-      --text-muted: #556677;
-      --border-color: #2a3a4f;
-      --glow-cyan: rgba(0, 212, 255, 0.3);
-      --glow-magenta: rgba(255, 0, 170, 0.3);
-      --glow-green: rgba(0, 255, 136, 0.3);
+      --text-muted: #4a5568;
+      --border-color: #1e2d45;
+      --glow-cyan: rgba(0, 229, 255, 0.25);
+      --glow-magenta: rgba(255, 45, 146, 0.25);
+      --glow-green: rgba(0, 255, 157, 0.25);
+      --glow-purple: rgba(168, 85, 247, 0.25);
     }
 
     * {
@@ -32,7 +35,7 @@
     }
 
     body {
-      font-family: 'Space Grotesk', sans-serif;
+      font-family: 'Outfit', sans-serif;
       background: var(--bg-primary);
       color: var(--text-primary);
       min-height: 100vh;
@@ -47,9 +50,11 @@
       width: 100%;
       height: 100%;
       background-image: 
-        linear-gradient(rgba(0, 212, 255, 0.03) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(0, 212, 255, 0.03) 1px, transparent 1px);
-      background-size: 50px 50px;
+        radial-gradient(ellipse at 20% 80%, rgba(0, 229, 255, 0.05) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 20%, rgba(255, 45, 146, 0.05) 0%, transparent 50%),
+        linear-gradient(rgba(0, 229, 255, 0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 229, 255, 0.02) 1px, transparent 1px);
+      background-size: 100% 100%, 100% 100%, 60px 60px, 60px 60px;
       pointer-events: none;
       z-index: 0;
     }
@@ -57,41 +62,101 @@
     .container {
       position: relative;
       z-index: 1;
-      max-width: 1400px;
+      max-width: 1500px;
       margin: 0 auto;
-      padding: 30px;
+      padding: 25px;
     }
 
     /* Header */
     .header {
       text-align: center;
-      margin-bottom: 40px;
+      margin-bottom: 30px;
     }
 
     .header h1 {
-      font-size: 2.5rem;
-      font-weight: 700;
+      font-size: 2.2rem;
+      font-weight: 800;
       background: linear-gradient(135deg, var(--accent-cyan), var(--accent-magenta));
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
-      margin-bottom: 10px;
+      margin-bottom: 8px;
+      letter-spacing: -0.02em;
     }
 
     .header .subtitle {
       color: var(--text-secondary);
-      font-size: 1.1rem;
+      font-size: 1rem;
       font-weight: 400;
+    }
+
+    /* Advanced Mode Toggle */
+    .advanced-toggle {
+      position: absolute;
+      top: 25px;
+      right: 25px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      z-index: 10;
+    }
+
+    .toggle-label {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .toggle-switch {
+      position: relative;
+      width: 48px;
+      height: 26px;
+      background: var(--bg-elevated);
+      border-radius: 13px;
+      cursor: pointer;
+      border: 1px solid var(--border-color);
+      transition: all 0.3s;
+    }
+
+    .toggle-switch.active {
+      background: var(--accent-purple);
+      border-color: var(--accent-purple);
+    }
+
+    .toggle-switch::after {
+      content: '';
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: white;
+      transition: all 0.3s;
+    }
+
+    .toggle-switch.active::after {
+      left: 25px;
     }
 
     /* Main grid */
     .main-grid {
       display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 30px;
+      grid-template-columns: 320px 1fr 1fr;
+      gap: 20px;
     }
 
-    @media (max-width: 1000px) {
+    @media (max-width: 1200px) {
+      .main-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+      .config-panel {
+        grid-column: 1 / -1;
+      }
+    }
+
+    @media (max-width: 800px) {
       .main-grid {
         grid-template-columns: 1fr;
       }
@@ -102,7 +167,7 @@
       background: var(--bg-card);
       border: 1px solid var(--border-color);
       border-radius: 16px;
-      padding: 24px;
+      padding: 20px;
       position: relative;
       overflow: hidden;
     }
@@ -113,131 +178,170 @@
       top: 0;
       left: 0;
       right: 0;
-      height: 3px;
+      height: 2px;
       background: linear-gradient(90deg, var(--accent-cyan), var(--accent-magenta));
     }
 
+    .card.accent-green::before {
+      background: linear-gradient(90deg, var(--accent-green), var(--accent-cyan));
+    }
+
+    .card.accent-purple::before {
+      background: linear-gradient(90deg, var(--accent-purple), var(--accent-magenta));
+    }
+
     .card-title {
-      font-size: 1.1rem;
+      font-size: 0.95rem;
       font-weight: 600;
       color: var(--text-primary);
-      margin-bottom: 20px;
+      margin-bottom: 16px;
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
     }
 
     .card-title .icon {
-      font-size: 1.4rem;
+      font-size: 1.2rem;
     }
 
-    /* Machines display */
-    .machines-grid {
-      display: grid;
-      grid-template-columns: 1fr auto 1fr;
-      gap: 20px;
+    /* Configuration Panel */
+    .config-panel {
+      grid-row: span 2;
+    }
+
+    .config-section {
+      margin-bottom: 20px;
+    }
+
+    .config-section-title {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      margin-bottom: 12px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .config-group {
+      margin-bottom: 14px;
+    }
+
+    .config-label {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+      display: flex;
+      justify-content: space-between;
       align-items: center;
-      margin-bottom: 30px;
     }
 
-    .machine {
-      background: var(--bg-elevated);
-      border-radius: 12px;
-      padding: 20px;
-      text-align: center;
-      border: 1px solid var(--border-color);
-      transition: all 0.3s ease;
-    }
-
-    .machine.active {
-      border-color: var(--accent-green);
-      box-shadow: 0 0 20px var(--glow-green);
-    }
-
-    .machine-icon {
-      font-size: 3rem;
-      margin-bottom: 10px;
-    }
-
-    .machine-role {
-      font-weight: 600;
-      font-size: 1rem;
-      margin-bottom: 5px;
-    }
-
-    .machine-address {
+    .config-value {
       font-family: 'JetBrains Mono', monospace;
+      color: var(--accent-cyan);
+      font-size: 0.75rem;
+    }
+
+    .config-input {
+      width: 100%;
+      padding: 10px 12px;
+      background: var(--bg-input);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      color: var(--text-primary);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85rem;
+      transition: all 0.2s;
+    }
+
+    .config-input:focus {
+      outline: none;
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 0 3px var(--glow-cyan);
+    }
+
+    .config-input:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .config-slider {
+      width: 100%;
+      height: 6px;
+      -webkit-appearance: none;
+      appearance: none;
+      background: var(--bg-elevated);
+      border-radius: 3px;
+      outline: none;
+    }
+
+    .config-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 18px;
+      height: 18px;
+      background: linear-gradient(135deg, var(--accent-cyan), var(--accent-magenta));
+      border-radius: 50%;
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+
+    .config-slider::-webkit-slider-thumb:hover {
+      transform: scale(1.15);
+    }
+
+    .config-select {
+      width: 100%;
+      padding: 10px 12px;
+      background: var(--bg-input);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      color: var(--text-primary);
+      font-family: 'Outfit', sans-serif;
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+
+    .estimated-time {
+      margin-top: 15px;
+      padding: 12px;
+      background: var(--bg-elevated);
+      border-radius: 8px;
+      text-align: center;
+    }
+
+    .estimated-time-label {
       font-size: 0.7rem;
       color: var(--text-muted);
-      word-break: break-all;
-    }
-
-    .machine-label {
-      font-size: 0.75rem;
-      color: var(--text-secondary);
-      margin-top: 8px;
       text-transform: uppercase;
       letter-spacing: 1px;
     }
 
-    .connector {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 5px;
-    }
-
-    .connector-line {
-      width: 60px;
-      height: 3px;
-      background: linear-gradient(90deg, var(--accent-cyan), var(--accent-magenta));
-      border-radius: 2px;
-      position: relative;
-      overflow: hidden;
-    }
-
-    .connector-line.animating::after {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: -100%;
-      width: 50%;
-      height: 100%;
-      background: white;
-      animation: flowRight 1s infinite;
-    }
-
-    @keyframes flowRight {
-      to { left: 200%; }
-    }
-
-    .connector-label {
-      font-size: 0.7rem;
-      color: var(--accent-cyan);
+    .estimated-time-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.3rem;
       font-weight: 600;
+      color: var(--accent-yellow);
+      margin-top: 4px;
     }
 
     /* Start button */
-    .start-section {
-      text-align: center;
-      margin-bottom: 30px;
-    }
-
     .start-btn {
+      width: 100%;
       background: linear-gradient(135deg, var(--accent-cyan), var(--accent-magenta));
       border: none;
-      padding: 16px 48px;
-      font-size: 1.1rem;
+      padding: 14px 24px;
+      font-size: 1rem;
       font-weight: 600;
       color: white;
-      border-radius: 50px;
+      border-radius: 12px;
       cursor: pointer;
       transition: all 0.3s ease;
-      font-family: 'Space Grotesk', sans-serif;
+      font-family: 'Outfit', sans-serif;
       text-transform: uppercase;
       letter-spacing: 2px;
       position: relative;
       overflow: hidden;
+      margin-top: 15px;
     }
 
     .start-btn::before {
@@ -257,7 +361,7 @@
 
     .start-btn:hover {
       transform: translateY(-2px);
-      box-shadow: 0 10px 40px var(--glow-cyan);
+      box-shadow: 0 8px 30px var(--glow-cyan);
     }
 
     .start-btn:disabled {
@@ -273,37 +377,231 @@
 
     @keyframes pulse {
       0%, 100% { box-shadow: 0 0 0 0 var(--glow-cyan); }
-      50% { box-shadow: 0 0 0 15px transparent; }
+      50% { box-shadow: 0 0 0 12px transparent; }
+    }
+
+    /* Machines display */
+    .machines-section {
+      margin-bottom: 20px;
+    }
+
+    .machines-grid {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      gap: 15px;
+      align-items: center;
+    }
+
+    .machine {
+      background: var(--bg-elevated);
+      border-radius: 12px;
+      padding: 16px;
+      text-align: center;
+      border: 1px solid var(--border-color);
+      transition: all 0.3s ease;
+      position: relative;
+    }
+
+    .machine.active {
+      border-color: var(--accent-green);
+      box-shadow: 0 0 20px var(--glow-green);
+    }
+
+    .machine-badge {
+      position: absolute;
+      top: -8px;
+      right: -8px;
+      background: var(--accent-purple);
+      color: white;
+      font-size: 0.65rem;
+      padding: 3px 8px;
+      border-radius: 10px;
+      font-weight: 600;
+      display: none;
+    }
+
+    .machine.has-contract .machine-badge {
+      display: block;
+    }
+
+    .machine-icon {
+      font-size: 2.5rem;
+      margin-bottom: 8px;
+    }
+
+    .machine-role {
+      font-weight: 600;
+      font-size: 0.9rem;
+      margin-bottom: 4px;
+    }
+
+    .machine-address {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.65rem;
+      color: var(--text-muted);
+      word-break: break-all;
+    }
+
+    .machine-label {
+      font-size: 0.7rem;
+      color: var(--text-secondary);
+      margin-top: 6px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    /* Connector with bidirectional flow */
+    .connector {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .connector-flow {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      align-items: center;
+    }
+
+    .connector-line {
+      width: 50px;
+      height: 3px;
+      border-radius: 2px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .connector-line.xrp-flow {
+      background: linear-gradient(90deg, var(--accent-cyan), var(--accent-green));
+    }
+
+    .connector-line.work-flow {
+      background: linear-gradient(270deg, var(--accent-purple), var(--accent-magenta));
+    }
+
+    .connector-line.animating::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 50%;
+      height: 100%;
+      background: white;
+      animation: flowRight 0.8s infinite;
+    }
+
+    .connector-line.work-flow.animating::after {
+      animation: flowLeft 0.8s infinite;
+    }
+
+    @keyframes flowRight {
+      to { left: 200%; }
+    }
+
+    @keyframes flowLeft {
+      from { left: 200%; }
+      to { left: -100%; }
+    }
+
+    .connector-label {
+      font-size: 0.6rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 3px;
+    }
+
+    .connector-label.xrp {
+      color: var(--accent-cyan);
+    }
+
+    .connector-label.work {
+      color: var(--accent-purple);
+    }
+
+    /* Phase indicator */
+    .phase-indicator {
+      display: flex;
+      justify-content: center;
+      gap: 6px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+
+    .phase-step {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .phase-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--border-color);
+      transition: all 0.3s ease;
+    }
+
+    .phase-dot.active {
+      background: var(--accent-cyan);
+      box-shadow: 0 0 10px var(--glow-cyan);
+    }
+
+    .phase-dot.completed {
+      background: var(--accent-green);
+    }
+
+    .phase-name {
+      font-size: 0.65rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .phase-name.active {
+      color: var(--accent-cyan);
+    }
+
+    .phase-connector {
+      width: 20px;
+      height: 2px;
+      background: var(--border-color);
+    }
+
+    .phase-connector.completed {
+      background: var(--accent-green);
     }
 
     /* Progress section */
     .progress-section {
-      margin-bottom: 30px;
+      margin-bottom: 20px;
     }
 
     .progress-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 12px;
+      margin-bottom: 10px;
     }
 
     .progress-label {
-      font-size: 0.9rem;
+      font-size: 0.8rem;
       color: var(--text-secondary);
     }
 
     .progress-value {
       font-family: 'JetBrains Mono', monospace;
-      font-size: 1.1rem;
+      font-size: 1rem;
       font-weight: 600;
       color: var(--accent-cyan);
     }
 
     .progress-bar {
-      height: 24px;
+      height: 20px;
       background: var(--bg-elevated);
-      border-radius: 12px;
+      border-radius: 10px;
       overflow: hidden;
       position: relative;
       border: 1px solid var(--border-color);
@@ -312,7 +610,7 @@
     .progress-fill {
       height: 100%;
       background: linear-gradient(90deg, var(--accent-cyan), var(--accent-magenta));
-      border-radius: 12px;
+      border-radius: 10px;
       transition: width 0.3s ease;
       position: relative;
       min-width: 0%;
@@ -336,14 +634,15 @@
 
     .work-units {
       display: flex;
-      gap: 8px;
-      margin-top: 15px;
+      gap: 6px;
+      margin-top: 12px;
       justify-content: center;
+      flex-wrap: wrap;
     }
 
     .work-unit {
-      width: 40px;
-      height: 40px;
+      width: 36px;
+      height: 36px;
       border-radius: 8px;
       background: var(--bg-elevated);
       border: 2px solid var(--border-color);
@@ -351,7 +650,7 @@
       align-items: center;
       justify-content: center;
       font-weight: 600;
-      font-size: 0.9rem;
+      font-size: 0.85rem;
       transition: all 0.3s ease;
     }
 
@@ -363,34 +662,175 @@
 
     .work-unit.active {
       border-color: var(--accent-cyan);
-      box-shadow: 0 0 15px var(--glow-cyan);
+      box-shadow: 0 0 12px var(--glow-cyan);
       animation: unitPulse 1s infinite;
     }
 
     @keyframes unitPulse {
       0%, 100% { transform: scale(1); }
-      50% { transform: scale(1.1); }
+      50% { transform: scale(1.08); }
+    }
+
+    /* Contract Details Card */
+    .contract-card {
+      background: var(--bg-elevated);
+      border-radius: 10px;
+      padding: 14px;
+      margin-bottom: 16px;
+      border: 1px solid var(--border-color);
+    }
+
+    .contract-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .contract-name {
+      font-weight: 600;
+      font-size: 0.9rem;
+      color: var(--accent-purple);
+    }
+
+    .contract-id {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.65rem;
+      color: var(--text-muted);
+    }
+
+    .contract-details {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+
+    .contract-detail {
+      background: var(--bg-card);
+      padding: 8px 10px;
+      border-radius: 6px;
+    }
+
+    .contract-detail-label {
+      font-size: 0.65rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .contract-detail-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      color: var(--text-primary);
+      margin-top: 2px;
+    }
+
+    /* Verification Panel */
+    .verification-panel {
+      background: var(--bg-elevated);
+      border-radius: 10px;
+      padding: 14px;
+      margin-bottom: 16px;
+      border: 1px solid var(--border-color);
+    }
+
+    .verification-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .verification-title {
+      font-weight: 600;
+      font-size: 0.85rem;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .verification-status {
+      font-size: 0.7rem;
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-weight: 600;
+    }
+
+    .verification-status.success {
+      background: rgba(0, 255, 157, 0.2);
+      color: var(--accent-green);
+    }
+
+    .verification-status.pending {
+      background: rgba(255, 208, 0, 0.2);
+      color: var(--accent-yellow);
+    }
+
+    .verification-status.failed {
+      background: rgba(255, 107, 53, 0.2);
+      color: var(--accent-orange);
+    }
+
+    .hash-comparison {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .hash-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .hash-label {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      width: 70px;
+      flex-shrink: 0;
+    }
+
+    .hash-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      background: var(--bg-card);
+      padding: 6px 10px;
+      border-radius: 6px;
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: var(--accent-cyan);
+    }
+
+    .hash-value.full {
+      font-size: 0.6rem;
+      word-break: break-all;
+      white-space: normal;
+    }
+
+    .hash-match-icon {
+      font-size: 1.2rem;
     }
 
     /* Stats display */
     .stats-grid {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 15px;
-      margin-bottom: 20px;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin-bottom: 16px;
     }
 
     .stat-box {
       background: var(--bg-elevated);
-      border-radius: 12px;
-      padding: 16px;
+      border-radius: 10px;
+      padding: 14px;
       text-align: center;
       border: 1px solid var(--border-color);
     }
 
     .stat-value {
       font-family: 'JetBrains Mono', monospace;
-      font-size: 1.5rem;
+      font-size: 1.3rem;
       font-weight: 700;
       background: linear-gradient(135deg, var(--accent-cyan), var(--accent-green));
       -webkit-background-clip: text;
@@ -399,11 +839,11 @@
     }
 
     .stat-label {
-      font-size: 0.75rem;
+      font-size: 0.7rem;
       color: var(--text-secondary);
       text-transform: uppercase;
       letter-spacing: 1px;
-      margin-top: 5px;
+      margin-top: 4px;
     }
 
     /* Transaction table */
@@ -413,18 +853,18 @@
 
     .table-container {
       overflow-x: auto;
-      max-height: 400px;
+      max-height: 350px;
       overflow-y: auto;
     }
 
     table {
       width: 100%;
       border-collapse: collapse;
-      font-size: 0.85rem;
+      font-size: 0.8rem;
     }
 
     th, td {
-      padding: 12px 16px;
+      padding: 10px 12px;
       text-align: left;
       border-bottom: 1px solid var(--border-color);
     }
@@ -434,7 +874,7 @@
       color: var(--text-secondary);
       font-weight: 600;
       text-transform: uppercase;
-      font-size: 0.7rem;
+      font-size: 0.65rem;
       letter-spacing: 1px;
       position: sticky;
       top: 0;
@@ -442,14 +882,14 @@
     }
 
     tr:hover {
-      background: rgba(0, 212, 255, 0.05);
+      background: rgba(0, 229, 255, 0.03);
     }
 
     .tx-type {
       display: inline-block;
-      padding: 4px 10px;
-      border-radius: 20px;
-      font-size: 0.7rem;
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-size: 0.65rem;
       font-weight: 600;
       text-transform: uppercase;
     }
@@ -460,12 +900,12 @@
     }
 
     .tx-type.claim {
-      background: rgba(0, 255, 136, 0.2);
+      background: rgba(0, 255, 157, 0.2);
       color: var(--accent-green);
     }
 
     .tx-type.finalize {
-      background: rgba(0, 212, 255, 0.2);
+      background: rgba(0, 229, 255, 0.2);
       color: var(--accent-cyan);
     }
 
@@ -477,13 +917,13 @@
 
     .tx-address {
       font-family: 'JetBrains Mono', monospace;
-      font-size: 0.7rem;
+      font-size: 0.65rem;
       color: var(--text-muted);
     }
 
     .tx-hash {
       font-family: 'JetBrains Mono', monospace;
-      font-size: 0.7rem;
+      font-size: 0.65rem;
       color: var(--accent-cyan);
       text-decoration: none;
     }
@@ -492,74 +932,62 @@
       text-decoration: underline;
     }
 
-    /* Phase indicator */
-    .phase-indicator {
-      display: flex;
-      justify-content: center;
-      gap: 8px;
-      margin-bottom: 25px;
+    .tx-verified {
+      font-size: 1rem;
     }
 
-    .phase-step {
-      display: flex;
-      align-items: center;
-      gap: 8px;
+    .tx-proof {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.6rem;
+      color: var(--accent-purple);
+      cursor: help;
     }
 
-    .phase-dot {
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-      background: var(--border-color);
-      transition: all 0.3s ease;
+    /* Log sections */
+    .logs-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
     }
 
-    .phase-dot.active {
-      background: var(--accent-cyan);
-      box-shadow: 0 0 10px var(--glow-cyan);
+    @media (max-width: 600px) {
+      .logs-grid {
+        grid-template-columns: 1fr;
+      }
     }
 
-    .phase-dot.completed {
-      background: var(--accent-green);
-    }
-
-    .phase-name {
-      font-size: 0.75rem;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 1px;
-    }
-
-    .phase-name.active {
-      color: var(--accent-cyan);
-    }
-
-    .phase-connector {
-      width: 30px;
-      height: 2px;
-      background: var(--border-color);
-    }
-
-    .phase-connector.completed {
-      background: var(--accent-green);
-    }
-
-    /* Log output */
-    .log-output {
+    .log-section {
       background: var(--bg-primary);
       border: 1px solid var(--border-color);
       border-radius: 8px;
-      padding: 15px;
+      overflow: hidden;
+    }
+
+    .log-section-header {
+      background: var(--bg-elevated);
+      padding: 8px 12px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .log-output {
+      padding: 10px;
       font-family: 'JetBrains Mono', monospace;
-      font-size: 0.8rem;
-      height: 200px;
+      font-size: 0.75rem;
+      height: 150px;
       overflow-y: auto;
       color: var(--text-secondary);
     }
 
     .log-entry {
-      padding: 4px 0;
-      border-bottom: 1px solid rgba(255,255,255,0.05);
+      padding: 3px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.03);
     }
 
     .log-entry:last-child {
@@ -568,36 +996,28 @@
 
     .log-time {
       color: var(--text-muted);
-      margin-right: 10px;
+      margin-right: 8px;
+      font-size: 0.7rem;
     }
 
-    .log-phase {
-      color: var(--accent-magenta);
-    }
-
-    .log-payment {
-      color: var(--accent-green);
-    }
-
-    .log-work {
-      color: var(--accent-cyan);
-    }
-
-    .log-error {
-      color: var(--accent-orange);
-    }
+    .log-phase { color: var(--accent-magenta); }
+    .log-payment { color: var(--accent-green); }
+    .log-work { color: var(--accent-cyan); }
+    .log-verify { color: var(--accent-purple); }
+    .log-error { color: var(--accent-orange); }
 
     /* Status badge */
     .status-badge {
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      padding: 6px 14px;
+      padding: 5px 12px;
       border-radius: 20px;
-      font-size: 0.8rem;
+      font-size: 0.75rem;
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 1px;
+      margin-left: auto;
     }
 
     .status-badge.idle {
@@ -606,18 +1026,18 @@
     }
 
     .status-badge.running {
-      background: rgba(0, 212, 255, 0.2);
+      background: rgba(0, 229, 255, 0.2);
       color: var(--accent-cyan);
     }
 
     .status-badge.complete {
-      background: rgba(0, 255, 136, 0.2);
+      background: rgba(0, 255, 157, 0.2);
       color: var(--accent-green);
     }
 
     .status-dot {
-      width: 8px;
-      height: 8px;
+      width: 7px;
+      height: 7px;
       border-radius: 50%;
       background: currentColor;
     }
@@ -633,28 +1053,29 @@
 
     /* Success modal */
     .modal-overlay {
-      display: none !important;
+      display: none;
       position: fixed;
       top: 0;
       left: 0;
       right: 0;
       bottom: 0;
-      background: rgba(0, 0, 0, 0.8);
+      background: rgba(0, 0, 0, 0.85);
       z-index: 100;
       align-items: center;
       justify-content: center;
     }
 
     .modal-overlay.active {
-      display: flex !important;
+      display: flex;
     }
 
     .modal {
       background: var(--bg-card);
       border: 1px solid var(--border-color);
       border-radius: 20px;
-      padding: 40px;
-      max-width: 500px;
+      padding: 35px;
+      max-width: 550px;
+      width: 90%;
       text-align: center;
       position: relative;
       animation: modalIn 0.3s ease;
@@ -666,13 +1087,13 @@
     }
 
     .modal-icon {
-      font-size: 4rem;
-      margin-bottom: 20px;
+      font-size: 3.5rem;
+      margin-bottom: 15px;
     }
 
     .modal h2 {
-      font-size: 1.8rem;
-      margin-bottom: 15px;
+      font-size: 1.6rem;
+      margin-bottom: 10px;
       background: linear-gradient(135deg, var(--accent-green), var(--accent-cyan));
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
@@ -681,27 +1102,90 @@
 
     .modal p {
       color: var(--text-secondary);
-      margin-bottom: 20px;
+      margin-bottom: 15px;
+      font-size: 0.9rem;
     }
 
     .modal-stats {
       display: grid;
-      grid-template-columns: repeat(2, 1fr);
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin: 20px 0;
+    }
+
+    .modal-stat {
+      background: var(--bg-elevated);
+      border-radius: 10px;
+      padding: 12px;
+    }
+
+    .modal-stat-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: var(--accent-cyan);
+    }
+
+    .modal-stat-label {
+      font-size: 0.65rem;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-top: 4px;
+    }
+
+    .modal-verification {
+      background: var(--bg-elevated);
+      border-radius: 10px;
+      padding: 14px;
+      margin: 15px 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       gap: 15px;
-      margin: 25px 0;
+    }
+
+    .modal-verification-icon {
+      font-size: 2rem;
+    }
+
+    .modal-verification-text {
+      text-align: left;
+    }
+
+    .modal-verification-rate {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--accent-green);
+    }
+
+    .modal-verification-label {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+    }
+
+    .modal-contract {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-bottom: 15px;
+    }
+
+    .modal-contract span {
+      color: var(--accent-purple);
+      font-family: 'JetBrains Mono', monospace;
     }
 
     .modal-close {
       background: var(--accent-cyan);
       border: none;
-      padding: 12px 30px;
-      font-size: 1rem;
+      padding: 12px 28px;
+      font-size: 0.95rem;
       font-weight: 600;
       color: var(--bg-primary);
-      border-radius: 30px;
+      border-radius: 25px;
       cursor: pointer;
       transition: all 0.3s ease;
-      font-family: 'Space Grotesk', sans-serif;
+      font-family: 'Outfit', sans-serif;
     }
 
     .modal-close:hover {
@@ -711,10 +1195,10 @@
 
     .explorer-link {
       display: block;
-      margin-top: 15px;
+      margin-top: 12px;
       color: var(--accent-cyan);
       text-decoration: none;
-      font-size: 0.9rem;
+      font-size: 0.85rem;
     }
 
     .explorer-link:hover {
@@ -724,14 +1208,62 @@
     /* Empty state */
     .empty-state {
       text-align: center;
-      padding: 40px;
+      padding: 30px;
       color: var(--text-muted);
     }
 
     .empty-state-icon {
-      font-size: 3rem;
-      margin-bottom: 15px;
+      font-size: 2.5rem;
+      margin-bottom: 10px;
       opacity: 0.5;
+    }
+
+    /* Advanced mode hidden content */
+    .advanced-only {
+      display: none;
+    }
+
+    body.advanced-mode .advanced-only {
+      display: block;
+    }
+
+    body.advanced-mode .hash-value:not(.truncated) {
+      font-size: 0.6rem;
+    }
+
+    /* Metrics panel */
+    .metrics-panel {
+      background: var(--bg-elevated);
+      border-radius: 10px;
+      padding: 14px;
+      border: 1px solid var(--border-color);
+    }
+
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    .metric-item {
+      text-align: center;
+      padding: 8px;
+      background: var(--bg-card);
+      border-radius: 6px;
+    }
+
+    .metric-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--accent-yellow);
+    }
+
+    .metric-label {
+      font-size: 0.6rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      margin-top: 2px;
     }
   </style>
 </head>
@@ -741,10 +1273,100 @@
   <div class="container">
     <header class="header">
       <h1>🤖 Machine-to-Machine Streaming</h1>
-      <p class="subtitle">Real-time XRPL Payment Channels for Trustless Micropayments</p>
+      <p class="subtitle">Real-time XRPL Payment Channels with Cryptographic Proof Verification</p>
     </header>
 
+    <!-- Advanced Mode Toggle -->
+    <div class="advanced-toggle">
+      <span class="toggle-label">Advanced</span>
+      <div class="toggle-switch" id="advancedToggle" onclick="toggleAdvancedMode()"></div>
+    </div>
+
     <div class="main-grid">
+      <!-- Configuration Panel -->
+      <div class="card config-panel">
+        <div class="card-title">
+          <span class="icon">⚙️</span>
+          Configuration
+        </div>
+
+        <div class="config-section">
+          <div class="config-section-title">Service Contract</div>
+          
+          <div class="config-group">
+            <label class="config-label">Service Name</label>
+            <input type="text" class="config-input" id="configServiceName" value="M2M Computational Work Service">
+          </div>
+          
+          <div class="config-group">
+            <label class="config-label">Service Type</label>
+            <select class="config-select" id="configServiceType">
+              <option value="compute">Compute</option>
+              <option value="data">Data Processing</option>
+              <option value="ai">AI Inference</option>
+              <option value="iot">IoT Sensors</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="config-section">
+          <div class="config-section-title">Payment Settings</div>
+          
+          <div class="config-group">
+            <label class="config-label">
+              Channel Amount (XRP)
+              <span class="config-value" id="channelAmountDisplay">10</span>
+            </label>
+            <input type="range" class="config-slider" id="configChannelAmount" min="5" max="100" value="10" step="5" oninput="updateConfigDisplay()">
+          </div>
+          
+          <div class="config-group">
+            <label class="config-label">
+              Cost per Work Unit (drops)
+              <span class="config-value" id="costPerUnitDisplay">50,000</span>
+            </label>
+            <input type="range" class="config-slider" id="configCostPerUnit" min="10000" max="200000" value="50000" step="10000" oninput="updateConfigDisplay()">
+          </div>
+          
+          <div class="config-group">
+            <label class="config-label">
+              Payment Frequency (seconds)
+              <span class="config-value" id="frequencyDisplay">1</span>
+            </label>
+            <input type="range" class="config-slider" id="configFrequency" min="1" max="5" value="1" step="1" oninput="updateConfigDisplay()">
+          </div>
+        </div>
+
+        <div class="config-section">
+          <div class="config-section-title">Work Settings</div>
+          
+          <div class="config-group">
+            <label class="config-label">
+              Total Work Units
+              <span class="config-value" id="workUnitsDisplay">5</span>
+            </label>
+            <input type="range" class="config-slider" id="configWorkUnits" min="3" max="10" value="5" step="1" oninput="updateConfigDisplay()">
+          </div>
+          
+          <div class="config-group">
+            <label class="config-label">
+              Work Duration per Unit (ms)
+              <span class="config-value" id="workDurationDisplay">3,000</span>
+            </label>
+            <input type="range" class="config-slider" id="configWorkDuration" min="1000" max="5000" value="3000" step="500" oninput="updateConfigDisplay()">
+          </div>
+        </div>
+
+        <div class="estimated-time">
+          <div class="estimated-time-label">Estimated Demo Time</div>
+          <div class="estimated-time-value" id="estimatedTime">~20s</div>
+        </div>
+
+        <button class="start-btn" id="startBtn" onclick="startDemo()">
+          ▶ Start Demo
+        </button>
+      </div>
+
       <!-- Control Panel -->
       <div class="card">
         <div class="card-title">
@@ -756,57 +1378,84 @@
           </span>
         </div>
 
-        <!-- Phase indicator -->
+        <!-- Phase indicator with Contract phase -->
         <div class="phase-indicator">
           <div class="phase-step">
-            <div class="phase-dot" id="phase-init"></div>
-            <span class="phase-name" id="phase-init-label">Init</span>
+            <div class="phase-dot" id="phase-contract"></div>
+            <span class="phase-name" id="phase-contract-label">Contract</span>
           </div>
-          <div class="phase-connector" id="connector-1"></div>
+          <div class="phase-connector" id="connector-0"></div>
           <div class="phase-step">
             <div class="phase-dot" id="phase-channel"></div>
             <span class="phase-name" id="phase-channel-label">Channel</span>
           </div>
-          <div class="phase-connector" id="connector-2"></div>
+          <div class="phase-connector" id="connector-1"></div>
           <div class="phase-step">
             <div class="phase-dot" id="phase-working"></div>
             <span class="phase-name" id="phase-working-label">Working</span>
           </div>
-          <div class="phase-connector" id="connector-3"></div>
+          <div class="phase-connector" id="connector-2"></div>
           <div class="phase-step">
             <div class="phase-dot" id="phase-finalizing"></div>
             <span class="phase-name" id="phase-finalizing-label">Finalize</span>
           </div>
         </div>
 
-        <!-- Machines -->
-        <div class="machines-grid">
-          <div class="machine" id="consumerMachine">
-            <div class="machine-icon">🖥️</div>
-            <div class="machine-role">Consumer</div>
-            <div class="machine-address" id="consumerAddress">Not connected</div>
-            <div class="machine-label">Sender</div>
+        <!-- Contract Card (hidden until created) -->
+        <div class="contract-card" id="contractCard" style="display: none;">
+          <div class="contract-header">
+            <div class="contract-name" id="contractName">-</div>
+            <div class="contract-id" id="contractId">-</div>
           </div>
-          
-          <div class="connector">
-            <div class="connector-label" id="connectorLabel">XRP</div>
-            <div class="connector-line" id="connectorLine"></div>
-            <div class="connector-label" id="flowAmount">0.000000</div>
-          </div>
-          
-          <div class="machine" id="supplierMachine">
-            <div class="machine-icon">⚙️</div>
-            <div class="machine-role">Supplier</div>
-            <div class="machine-address" id="supplierAddress">Not connected</div>
-            <div class="machine-label">Receiver</div>
+          <div class="contract-details">
+            <div class="contract-detail">
+              <div class="contract-detail-label">Provider</div>
+              <div class="contract-detail-value" id="contractProvider">-</div>
+            </div>
+            <div class="contract-detail">
+              <div class="contract-detail-label">Service Type</div>
+              <div class="contract-detail-value" id="contractServiceType">-</div>
+            </div>
+            <div class="contract-detail">
+              <div class="contract-detail-label">Rate</div>
+              <div class="contract-detail-value" id="contractRate">-</div>
+            </div>
+            <div class="contract-detail">
+              <div class="contract-detail-label">Frequency</div>
+              <div class="contract-detail-value" id="contractFrequency">-</div>
+            </div>
           </div>
         </div>
 
-        <!-- Start button -->
-        <div class="start-section">
-          <button class="start-btn" id="startBtn" onclick="startDemo()">
-            ▶ Start Demo
-          </button>
+        <!-- Machines -->
+        <div class="machines-section">
+          <div class="machines-grid">
+            <div class="machine" id="consumerMachine">
+              <div class="machine-icon">🖥️</div>
+              <div class="machine-role">Client</div>
+              <div class="machine-address" id="consumerAddress">Not connected</div>
+              <div class="machine-label">Sender</div>
+            </div>
+            
+            <div class="connector">
+              <div class="connector-flow">
+                <div class="connector-label xrp">💰 XRP</div>
+                <div class="connector-line xrp-flow" id="xrpFlowLine"></div>
+              </div>
+              <div class="connector-flow">
+                <div class="connector-line work-flow" id="workFlowLine"></div>
+                <div class="connector-label work">📦 Work</div>
+              </div>
+            </div>
+            
+            <div class="machine" id="supplierMachine">
+              <div class="machine-badge">📋 Contract</div>
+              <div class="machine-icon">⚙️</div>
+              <div class="machine-role">Provider</div>
+              <div class="machine-address" id="supplierAddress">Not connected</div>
+              <div class="machine-label">Receiver</div>
+            </div>
+          </div>
         </div>
 
         <!-- Progress -->
@@ -824,11 +1473,38 @@
         </div>
       </div>
 
-      <!-- Stats Panel -->
-      <div class="card">
+      <!-- Stats & Verification Panel -->
+      <div class="card accent-purple">
         <div class="card-title">
-          <span class="icon">📊</span>
-          Live Statistics
+          <span class="icon">🔐</span>
+          Verification & Stats
+        </div>
+
+        <!-- Verification Panel -->
+        <div class="verification-panel" id="verificationPanel">
+          <div class="verification-header">
+            <div class="verification-title">
+              <span>🔒</span> SHA-256 Proof
+            </div>
+            <span class="verification-status pending" id="verificationStatus">Waiting</span>
+          </div>
+          <div class="hash-comparison">
+            <div class="hash-row">
+              <span class="hash-label">Provider:</span>
+              <span class="hash-value truncated" id="supplierHash">-</span>
+            </div>
+            <div class="hash-row">
+              <span class="hash-label">Computed:</span>
+              <span class="hash-value truncated" id="computedHash">-</span>
+            </div>
+            <div class="hash-row advanced-only">
+              <span class="hash-label">Full Hash:</span>
+              <span class="hash-value full" id="fullHash">-</span>
+            </div>
+          </div>
+          <div class="hash-match-icon" id="hashMatchIcon" style="text-align: center; margin-top: 10px; display: none;">
+            ✅ Match
+          </div>
         </div>
 
         <div class="stats-grid">
@@ -844,16 +1520,62 @@
             <div class="stat-value" id="statWorkUnits">0/5</div>
             <div class="stat-label">Work Units</div>
           </div>
+          <div class="stat-box">
+            <div class="stat-value" id="statVerified">0</div>
+            <div class="stat-label">Verified ✓</div>
+          </div>
         </div>
 
-        <div class="card-title" style="margin-top: 20px;">
-          <span class="icon">📝</span>
-          Activity Log
+        <!-- Work Metrics (Advanced) -->
+        <div class="metrics-panel advanced-only" id="metricsPanel">
+          <div class="card-title" style="margin-bottom: 10px; font-size: 0.8rem;">
+            <span>📊</span> Work Metrics
+          </div>
+          <div class="metrics-grid">
+            <div class="metric-item">
+              <div class="metric-value" id="metricCpu">-</div>
+              <div class="metric-label">CPU Cycles</div>
+            </div>
+            <div class="metric-item">
+              <div class="metric-value" id="metricMemory">-</div>
+              <div class="metric-label">Memory (MB)</div>
+            </div>
+            <div class="metric-item">
+              <div class="metric-value" id="metricData">-</div>
+              <div class="metric-label">Data (KB)</div>
+            </div>
+          </div>
         </div>
-        <div class="log-output" id="logOutput">
-          <div class="empty-state">
-            <div class="empty-state-icon">📋</div>
-            <div>Press Start to begin the demo</div>
+      </div>
+
+      <!-- Activity Logs -->
+      <div class="card" style="grid-column: 2 / -1;">
+        <div class="card-title">
+          <span class="icon">📝</span>
+          Activity Logs
+        </div>
+        <div class="logs-grid">
+          <div class="log-section">
+            <div class="log-section-header">
+              <span>📋</span> General Activity
+            </div>
+            <div class="log-output" id="logOutput">
+              <div class="empty-state">
+                <div class="empty-state-icon">📋</div>
+                <div>Press Start to begin</div>
+              </div>
+            </div>
+          </div>
+          <div class="log-section">
+            <div class="log-section-header">
+              <span>🔐</span> Verification Log
+            </div>
+            <div class="log-output" id="verifyLogOutput">
+              <div class="empty-state">
+                <div class="empty-state-icon">🔒</div>
+                <div>Verification events</div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -870,16 +1592,18 @@
               <tr>
                 <th>Type</th>
                 <th>Time</th>
+                <th>Verified</th>
                 <th>From</th>
                 <th>To</th>
                 <th>Amount (XRP)</th>
+                <th>Proof</th>
                 <th>Description</th>
                 <th>Tx Hash</th>
               </tr>
             </thead>
             <tbody id="transactionsBody">
               <tr>
-                <td colspan="7" style="text-align: center; padding: 40px; color: var(--text-muted);">
+                <td colspan="9" style="text-align: center; padding: 30px; color: var(--text-muted);">
                   <div class="empty-state-icon">📭</div>
                   <div>No transactions yet</div>
                 </td>
@@ -896,25 +1620,47 @@
     <div class="modal">
       <div class="modal-icon">🎉</div>
       <h2>Demo Complete!</h2>
-      <p>The machine-to-machine streaming payment was successful.</p>
-      <div class="modal-stats">
-        <div class="stat-box">
-          <div class="stat-value" id="modalWorkUnits">5</div>
-          <div class="stat-label">Work Units</div>
-        </div>
-        <div class="stat-box">
-          <div class="stat-value" id="modalClaims">0</div>
-          <div class="stat-label">Claims</div>
-        </div>
-        <div class="stat-box">
-          <div class="stat-value" id="modalTotal">0</div>
-          <div class="stat-label">XRP Transferred</div>
-        </div>
-        <div class="stat-box">
-          <div class="stat-value" id="modalDuration">0s</div>
-          <div class="stat-label">Duration</div>
+      <p>The machine-to-machine streaming payment was successful with cryptographic verification.</p>
+      
+      <div class="modal-verification">
+        <div class="modal-verification-icon">🔐</div>
+        <div class="modal-verification-text">
+          <div class="modal-verification-rate" id="modalVerifyRate">5/5 Verified</div>
+          <div class="modal-verification-label">Work units cryptographically verified</div>
         </div>
       </div>
+      
+      <div class="modal-stats">
+        <div class="modal-stat">
+          <div class="modal-stat-value" id="modalWorkUnits">5</div>
+          <div class="modal-stat-label">Work Units</div>
+        </div>
+        <div class="modal-stat">
+          <div class="modal-stat-value" id="modalClaims">0</div>
+          <div class="modal-stat-label">Claims</div>
+        </div>
+        <div class="modal-stat">
+          <div class="modal-stat-value" id="modalTotal">0</div>
+          <div class="modal-stat-label">XRP Transferred</div>
+        </div>
+        <div class="modal-stat">
+          <div class="modal-stat-value" id="modalDuration">0s</div>
+          <div class="modal-stat-label">Duration</div>
+        </div>
+        <div class="modal-stat">
+          <div class="modal-stat-value" id="modalAvgVerify">0ms</div>
+          <div class="modal-stat-label">Avg Verify Time</div>
+        </div>
+        <div class="modal-stat">
+          <div class="modal-stat-value" id="modalTxCount">0</div>
+          <div class="modal-stat-label">Transactions</div>
+        </div>
+      </div>
+      
+      <div class="modal-contract">
+        Contract: <span id="modalContractId">-</span>
+      </div>
+      
       <a href="#" class="explorer-link" id="explorerLink" target="_blank">View on XRPL Explorer →</a>
       <button class="modal-close" onclick="closeModal()">Close</button>
     </div>
@@ -927,9 +1673,38 @@
     let totalWorkUnits = 5;
     let transactions = [];
     let startTime = null;
+    let advancedMode = false;
+    let totalVerified = 0;
+
+    // Toggle advanced mode
+    function toggleAdvancedMode() {
+      advancedMode = !advancedMode;
+      document.body.classList.toggle('advanced-mode', advancedMode);
+      document.getElementById('advancedToggle').classList.toggle('active', advancedMode);
+    }
+
+    // Update config display values
+    function updateConfigDisplay() {
+      const channelAmount = document.getElementById('configChannelAmount').value;
+      const costPerUnit = document.getElementById('configCostPerUnit').value;
+      const frequency = document.getElementById('configFrequency').value;
+      const workUnits = document.getElementById('configWorkUnits').value;
+      const workDuration = document.getElementById('configWorkDuration').value;
+      
+      document.getElementById('channelAmountDisplay').textContent = channelAmount;
+      document.getElementById('costPerUnitDisplay').textContent = parseInt(costPerUnit).toLocaleString();
+      document.getElementById('frequencyDisplay').textContent = frequency;
+      document.getElementById('workUnitsDisplay').textContent = workUnits;
+      document.getElementById('workDurationDisplay').textContent = parseInt(workDuration).toLocaleString();
+      
+      // Calculate estimated time (work + overhead)
+      const estimatedMs = (parseInt(workDuration) * parseInt(workUnits)) + 5000;
+      document.getElementById('estimatedTime').textContent = `~${Math.ceil(estimatedMs / 1000)}s`;
+    }
 
     // Initialize work units display
     function initWorkUnits() {
+      totalWorkUnits = parseInt(document.getElementById('configWorkUnits').value);
       const container = document.getElementById('workUnits');
       container.innerHTML = '';
       for (let i = 1; i <= totalWorkUnits; i++) {
@@ -939,17 +1714,18 @@
         unit.textContent = i;
         container.appendChild(unit);
       }
+      document.getElementById('statWorkUnits').textContent = `0/${totalWorkUnits}`;
     }
 
     // Format address for display
     function formatAddress(addr) {
       if (!addr) return 'N/A';
-      return addr.substring(0, 8) + '...' + addr.substring(addr.length - 6);
+      return addr.substring(0, 6) + '...' + addr.substring(addr.length - 4);
     }
 
     // Add log entry
-    function addLog(message, type = '') {
-      const log = document.getElementById('logOutput');
+    function addLog(message, type = '', logId = 'logOutput') {
+      const log = document.getElementById(logId);
       const time = new Date().toLocaleTimeString();
       
       // Clear empty state on first log
@@ -976,14 +1752,18 @@
       
       const row = document.createElement('tr');
       const time = new Date(tx.timestamp).toLocaleTimeString();
-      const txHash = tx.txHash ? `<a href="https://testnet.xrpl.org/transactions/${tx.txHash}" target="_blank" class="tx-hash">${tx.txHash.substring(0, 12)}...</a>` : '-';
+      const txHash = tx.txHash ? `<a href="https://testnet.xrpl.org/transactions/${tx.txHash}" target="_blank" class="tx-hash">${tx.txHash.substring(0, 10)}...</a>` : '-';
+      const verified = tx.verified !== undefined ? (tx.verified ? '✅' : '❌') : '-';
+      const proof = tx.proof ? `<span class="tx-proof" title="${tx.fullProof || tx.proof}">${tx.proof}</span>` : '-';
       
       row.innerHTML = `
         <td><span class="tx-type ${tx.type}">${tx.type.replace('_', ' ')}</span></td>
         <td>${time}</td>
+        <td class="tx-verified">${verified}</td>
         <td class="tx-address">${formatAddress(tx.from)}</td>
         <td class="tx-address">${formatAddress(tx.to)}</td>
         <td class="tx-amount">+${tx.amountXRP}</td>
+        <td>${proof}</td>
         <td>${tx.description}</td>
         <td>${txHash}</td>
       `;
@@ -993,9 +1773,10 @@
 
     // Update phase indicators
     function updatePhase(phase) {
-      const phases = ['init', 'channel', 'streaming', 'working', 'finalizing', 'complete'];
+      const phases = ['contract', 'channel', 'streaming', 'working', 'finalizing', 'complete'];
       const phaseMap = {
-        'init': 'phase-init',
+        'init': 'phase-contract',
+        'contract': 'phase-contract',
         'channel': 'phase-channel',
         'streaming': 'phase-channel',
         'working': 'phase-working',
@@ -1033,9 +1814,50 @@
       });
       
       // Update connectors
+      if (currentIndex >= 1) document.getElementById('connector-0')?.classList.add('completed');
       if (currentIndex >= 2) document.getElementById('connector-1')?.classList.add('completed');
-      if (currentIndex >= 3) document.getElementById('connector-2')?.classList.add('completed');
-      if (currentIndex >= 4) document.getElementById('connector-3')?.classList.add('completed');
+      if (currentIndex >= 4) document.getElementById('connector-2')?.classList.add('completed');
+    }
+
+    // Update verification panel
+    function updateVerification(data) {
+      const status = document.getElementById('verificationStatus');
+      const supplierHash = document.getElementById('supplierHash');
+      const computedHash = document.getElementById('computedHash');
+      const fullHash = document.getElementById('fullHash');
+      const matchIcon = document.getElementById('hashMatchIcon');
+      
+      supplierHash.textContent = data.supplierProof;
+      computedHash.textContent = data.computedProof;
+      
+      if (data.fullProviderProof) {
+        fullHash.textContent = data.fullProviderProof;
+      }
+      
+      if (data.verified) {
+        status.className = 'verification-status success';
+        status.textContent = 'Verified ✓';
+        matchIcon.textContent = '✅ Hash Match';
+        matchIcon.style.display = 'block';
+        matchIcon.style.color = 'var(--accent-green)';
+        totalVerified++;
+        document.getElementById('statVerified').textContent = totalVerified;
+      } else {
+        status.className = 'verification-status failed';
+        status.textContent = 'Failed ✗';
+        matchIcon.textContent = '❌ Mismatch';
+        matchIcon.style.display = 'block';
+        matchIcon.style.color = 'var(--accent-orange)';
+      }
+    }
+
+    // Update metrics panel
+    function updateMetrics(metrics) {
+      if (metrics) {
+        document.getElementById('metricCpu').textContent = (metrics.cpuCycles / 1000).toFixed(0) + 'K';
+        document.getElementById('metricMemory').textContent = metrics.memoryUsed;
+        document.getElementById('metricData').textContent = metrics.dataProcessed;
+      }
     }
 
     // Update status badge
@@ -1047,6 +1869,19 @@
       text.textContent = status.charAt(0).toUpperCase() + status.slice(1);
     }
 
+    // Get config from inputs
+    function getConfig() {
+      return {
+        channelAmount: (parseInt(document.getElementById('configChannelAmount').value) * 1000000).toString(),
+        dropsPerWorkUnit: document.getElementById('configCostPerUnit').value,
+        totalWorkUnits: document.getElementById('configWorkUnits').value,
+        workDurationMs: document.getElementById('configWorkDuration').value,
+        paymentFrequency: document.getElementById('configFrequency').value,
+        serviceName: document.getElementById('configServiceName').value,
+        serviceType: document.getElementById('configServiceType').value,
+      };
+    }
+
     // Start the demo
     function startDemo() {
       if (isRunning) return;
@@ -1054,24 +1889,45 @@
       isRunning = true;
       startTime = Date.now();
       transactions = [];
+      totalVerified = 0;
+      
+      const config = getConfig();
+      totalWorkUnits = parseInt(config.totalWorkUnits);
+      
+      // Disable config inputs
+      document.querySelectorAll('.config-input, .config-slider, .config-select').forEach(el => {
+        el.disabled = true;
+      });
       
       // Reset UI
       document.getElementById('startBtn').disabled = true;
       document.getElementById('startBtn').textContent = '● Running...';
       document.getElementById('startBtn').classList.add('running');
       document.getElementById('logOutput').innerHTML = '';
+      document.getElementById('verifyLogOutput').innerHTML = '';
       document.getElementById('transactionsBody').innerHTML = '';
       document.getElementById('progressFill').style.width = '0%';
       document.getElementById('progressPercent').textContent = '0%';
       document.getElementById('statTotalPaid').textContent = '0.000000';
       document.getElementById('statClaims').textContent = '0';
+      document.getElementById('statVerified').textContent = '0';
       document.getElementById('statWorkUnits').textContent = '0/' + totalWorkUnits;
+      document.getElementById('contractCard').style.display = 'none';
+      document.getElementById('supplierHash').textContent = '-';
+      document.getElementById('computedHash').textContent = '-';
+      document.getElementById('fullHash').textContent = '-';
+      document.getElementById('hashMatchIcon').style.display = 'none';
+      document.getElementById('verificationStatus').className = 'verification-status pending';
+      document.getElementById('verificationStatus').textContent = 'Waiting';
       
       initWorkUnits();
       updateStatus('running');
       
-      // Connect to SSE endpoint
-      eventSource = new EventSource('/api/m2m/start');
+      // Build query string from config
+      const queryParams = new URLSearchParams(config).toString();
+      
+      // Connect to SSE endpoint with config
+      eventSource = new EventSource(`/api/m2m/start?${queryParams}`);
       
       eventSource.addEventListener('init', (e) => {
         const data = JSON.parse(e.data);
@@ -1079,11 +1935,29 @@
         document.getElementById('supplierAddress').textContent = formatAddress(data.supplier.address);
         document.getElementById('consumerMachine').classList.add('active');
         document.getElementById('supplierMachine').classList.add('active');
-        totalWorkUnits = data.config.totalWorkUnits;
-        initWorkUnits();
         addLog(`Machines initialized`, 'phase');
-        addLog(`Consumer: ${formatAddress(data.consumer.address)}`, '');
-        addLog(`Supplier: ${formatAddress(data.supplier.address)}`, '');
+        addLog(`Client: ${formatAddress(data.consumer.address)}`, '');
+        addLog(`Provider: ${formatAddress(data.supplier.address)}`, '');
+      });
+      
+      eventSource.addEventListener('contract_created', (e) => {
+        const data = JSON.parse(e.data);
+        const contract = data.contract;
+        
+        // Show contract card
+        document.getElementById('contractCard').style.display = 'block';
+        document.getElementById('contractName').textContent = contract.name;
+        document.getElementById('contractId').textContent = contract.id.substring(0, 20) + '...';
+        document.getElementById('contractProvider').textContent = formatAddress(contract.provider);
+        document.getElementById('contractServiceType').textContent = contract.serviceType;
+        document.getElementById('contractRate').textContent = contract.pricing.rateXRP + '/s';
+        document.getElementById('contractFrequency').textContent = contract.pricing.frequency + 's';
+        
+        // Show contract badge on supplier
+        document.getElementById('supplierMachine').classList.add('has-contract');
+        
+        addLog(`Service contract created: ${contract.name}`, 'phase');
+        addLog(`Rate: ${contract.pricing.rateXRP} XRP/sec`, 'payment');
       });
       
       eventSource.addEventListener('phase', (e) => {
@@ -1098,9 +1972,18 @@
         addLog(`Locked ${data.amountLocked} XRP`, 'payment');
       });
       
+      eventSource.addEventListener('subscription', (e) => {
+        const data = JSON.parse(e.data);
+        if (data.action === 'created') {
+          addLog(`Subscription started on contract`, 'phase');
+        } else if (data.action === 'completed') {
+          addLog(`Subscription completed`, 'phase');
+        }
+      });
+      
       eventSource.addEventListener('streams_started', (e) => {
         const data = JSON.parse(e.data);
-        document.getElementById('connectorLine').classList.add('animating');
+        document.getElementById('xrpFlowLine').classList.add('animating');
         addLog(`Streaming active at ${data.ratePerSecond} XRP/sec`, 'work');
       });
       
@@ -1117,6 +2000,24 @@
         document.getElementById('progressPercent').textContent = data.overallProgress + '%';
       });
       
+      eventSource.addEventListener('work_data_sent', (e) => {
+        const data = JSON.parse(e.data);
+        document.getElementById('workFlowLine').classList.add('animating');
+        addLog(`Work data sent for unit #${data.unitId}`, 'work');
+        addLog(`[SEND] Unit #${data.unitId} proof: ${data.proofTruncated}`, 'verify', 'verifyLogOutput');
+        
+        // Update metrics
+        updateMetrics(data.metrics);
+      });
+      
+      eventSource.addEventListener('verification', (e) => {
+        const data = JSON.parse(e.data);
+        updateVerification(data);
+        addLog(data.message, data.verified ? 'verify' : 'error', 'verifyLogOutput');
+        addLog(`[VERIFY] Provider: ${data.supplierProof}`, 'verify', 'verifyLogOutput');
+        addLog(`[VERIFY] Computed: ${data.computedProof}`, 'verify', 'verifyLogOutput');
+      });
+      
       eventSource.addEventListener('work_unit_complete', (e) => {
         const data = JSON.parse(e.data);
         const unit = document.getElementById(`workUnit-${data.unitId}`);
@@ -1126,13 +2027,17 @@
         }
         document.getElementById('statWorkUnits').textContent = `${data.totalCompleted}/${totalWorkUnits}`;
         addLog(data.message, 'work');
+        
+        // Update metrics
+        if (data.metrics) {
+          updateMetrics(data.metrics);
+        }
       });
       
       eventSource.addEventListener('payment', (e) => {
         const data = JSON.parse(e.data);
         document.getElementById('statTotalPaid').textContent = data.amountXRP;
         document.getElementById('statClaims').textContent = data.claimNumber;
-        document.getElementById('flowAmount').textContent = data.amountXRP;
         addLog(data.message, 'payment');
       });
       
@@ -1181,7 +2086,8 @@
       isRunning = false;
       eventSource?.close();
       
-      document.getElementById('connectorLine').classList.remove('animating');
+      document.getElementById('xrpFlowLine').classList.remove('animating');
+      document.getElementById('workFlowLine').classList.remove('animating');
       updateStatus('complete');
       updatePhase('complete');
       
@@ -1190,6 +2096,10 @@
       document.getElementById('modalClaims').textContent = summary.claimsGenerated;
       document.getElementById('modalTotal').textContent = summary.totalPaidXRP;
       document.getElementById('modalDuration').textContent = summary.duration + 's';
+      document.getElementById('modalVerifyRate').textContent = summary.verificationRate || `${totalVerified}/${summary.workUnitsCompleted}`;
+      document.getElementById('modalAvgVerify').textContent = summary.averageVerificationTime + 'ms';
+      document.getElementById('modalTxCount').textContent = summary.transactions;
+      document.getElementById('modalContractId').textContent = summary.contract?.id?.substring(0, 20) + '...' || '-';
       
       // Show modal
       document.getElementById('successModal').classList.add('active');
@@ -1198,6 +2108,11 @@
       document.getElementById('startBtn').disabled = false;
       document.getElementById('startBtn').textContent = '▶ Run Again';
       document.getElementById('startBtn').classList.remove('running');
+      
+      // Re-enable config inputs
+      document.querySelectorAll('.config-input, .config-slider, .config-select').forEach(el => {
+        el.disabled = false;
+      });
       
       addLog(`Demo completed in ${summary.duration}s`, 'phase');
     }
@@ -1210,8 +2125,14 @@
       document.getElementById('startBtn').disabled = false;
       document.getElementById('startBtn').textContent = '▶ Start Demo';
       document.getElementById('startBtn').classList.remove('running');
-      document.getElementById('connectorLine').classList.remove('animating');
+      document.getElementById('xrpFlowLine').classList.remove('animating');
+      document.getElementById('workFlowLine').classList.remove('animating');
       updateStatus('idle');
+      
+      // Re-enable config inputs
+      document.querySelectorAll('.config-input, .config-slider, .config-select').forEach(el => {
+        el.disabled = false;
+      });
     }
 
     // Close modal
@@ -1222,6 +2143,7 @@
     // Initialize on load
     document.addEventListener('DOMContentLoaded', () => {
       initWorkUnits();
+      updateConfigDisplay();
     });
   </script>
 </body>

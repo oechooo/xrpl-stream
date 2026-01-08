@@ -8,10 +8,6 @@ const config = require("./config");
 const { getClientManager } = require("./src/utils/xrplClient");
 const streamRoutes = require("./src/api/streamRoutes");
 const rlusdRoutes = require("./src/api/rlusdRoutes");
-const express = require('express');
-const config = require('./config');
-const { getClientManager } = require('./src/utils/xrplClient');
-const streamRoutes = require('./src/api/streamRoutes');
 const m2mDemoRoutes = require('./src/api/m2mDemoRoutes');
 const {
   configureCORS,
