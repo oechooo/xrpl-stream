@@ -15,7 +15,9 @@
 
 const axios = require('axios');
 const xrpl = require('xrpl');
+const crypto = require('crypto');
 const { createChannel, getChannelInfo } = require('../contracts/createChannel');
+const { ServiceContract, getContractRegistry } = require('../src/core/contract');
 require('dotenv').config();
 
 const API_BASE = 'http://localhost:3000/api';
@@ -38,8 +40,8 @@ const CONFIG = {
   // Simulated time for each work unit (ms)
   workDurationMs: 2000,
   
-  // Payment interval (ms) - how often to generate claims
-  paymentIntervalMs: 1000,
+  // NOTE: Payment interval is now controlled by serviceContract.pricing.frequency
+  // This ensures streaming frequency matches the contract terms
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -81,6 +83,10 @@ class Supplier {
     this.workInProgress = false;
     this.workProgress = 0; // 0-100 percentage for current work unit
     this.workResults = [];
+    this.serviceContracts = [];
+    this.registry = getContractRegistry();
+    this.activeContract = null; // Currently active service contract
+    this.consumerCallbacks = new Map(); // channelId -> callback function
   }
   
   get address() {
@@ -90,8 +96,14 @@ class Supplier {
   /**
    * Start receiving stream session
    */
-  async startReceiving(channelId, senderPublicKey) {
+  async startReceiving(channelId, senderPublicKey, contract) {
     console.log('\n🔧 [SUPPLIER] Starting receiver session...');
+    
+    if (!contract) {
+      throw new Error('Cannot start receiving without a service contract');
+    }
+    
+    this.activeContract = contract;
     
     const response = await apiRequest('post', '/stream/start', {
       channelId,
@@ -100,6 +112,7 @@ class Supplier {
     });
     
     console.log('   ✓ Receiver session active');
+    console.log(`   Contract frequency: ${contract.pricing.frequency}s per payment`);
     return response.data;
   }
   
@@ -132,20 +145,23 @@ class Supplier {
       }
     }
     
-    // Generate "proof of work" - in reality this could be:
-    // - A hash of processed data
-    // - A checksum
-    // - A verifiable result
+    // Generate "proof of work" - cryptographic hash of work data
+    const completedAt = Date.now();
+    const metrics = {
+      cpuCycles: Math.floor(Math.random() * 1000000) + 500000,
+      memoryUsed: Math.floor(Math.random() * 512) + 256,
+      dataProcessed: Math.floor(Math.random() * 1000) + 100,
+    };
+    
     const workResult = {
       unitId: workUnitId,
-      completedAt: Date.now(),
-      proof: this.generateWorkProof(workUnitId),
-      metrics: {
-        cpuCycles: Math.floor(Math.random() * 1000000) + 500000,
-        memoryUsed: Math.floor(Math.random() * 512) + 256,
-        dataProcessed: Math.floor(Math.random() * 1000) + 100,
-      },
+      completedAt,
+      metrics,
+      proof: null, // Will be set after generation
     };
+    
+    // Generate SHA256 proof
+    workResult.proof = this.generateWorkProof(workResult);
     
     this.workResults.push(workResult);
     this.totalWorkCompleted++;
@@ -153,18 +169,47 @@ class Supplier {
     this.workProgress = 100;
     
     console.log(`   ✅ Work unit #${workUnitId} COMPLETED`);
-    console.log(`   📋 Proof: ${workResult.proof.substring(0, 16)}...`);
+    console.log(`   📋 Proof (SHA256): ${workResult.proof.substring(0, 16)}...`);
+    
+    // Send work data to consumer for verification
+    this.sendWorkToConsumer(workResult);
     
     return workResult;
   }
   
   /**
-   * Generate a verifiable proof of work
+   * Send work data to consumer for verification
    */
-  generateWorkProof(unitId) {
-    const data = `${this.address}-${unitId}-${Date.now()}`;
-    // In production, this would be a cryptographic hash or signature
-    return Buffer.from(data).toString('base64');
+  sendWorkToConsumer(workResult) {
+    // In a real distributed system, this would be an API call or message
+    // For this demo, we use a callback pattern
+    this.consumerCallbacks.forEach((callback) => {
+      callback(workResult);
+    });
+  }
+  
+  /**
+   * Register a consumer callback to receive work data
+   */
+  registerConsumer(channelId, callback) {
+    this.consumerCallbacks.set(channelId, callback);
+    console.log(`   ✓ Consumer registered for work data on channel ${channelId}`);
+  }
+  
+  /**
+   * Generate a verifiable proof of work using SHA256
+   */
+  generateWorkProof(workData) {
+    const { unitId, completedAt, metrics } = workData;
+    const data = JSON.stringify({
+      address: this.address,
+      unitId,
+      completedAt,
+      metrics,
+    });
+    
+    // SHA256 hash of the work data
+    return crypto.createHash('sha256').update(data).digest('hex');
   }
   
   /**
@@ -207,6 +252,35 @@ class Supplier {
     
     return response.data;
   }
+
+  async createServiceContract(details) {
+    // Create a service contract that defines the work this supplier provides
+    const contract = new ServiceContract({
+      agentAddress: this.wallet.address,
+      agentPublicKey: this.wallet.publicKey,
+      name: details.name || 'Compute Work Service',
+      description: details.description || 'Machine-to-machine computational work with verifiable proof',
+      serviceType: details.serviceType || 'compute',
+      category: details.category || 'infrastructure',
+      pricing: {
+        frequency: details.frequency || 1, // Payment every second
+        costPerInterval: details.costPerInterval || CONFIG.dropsPerWorkUnit.toString(),
+        unit: details.unit || 'per work unit',
+        minChannelAmount: details.minChannelAmount || CONFIG.channelAmount,
+        recommendedChannelAmount: details.recommendedChannelAmount || CONFIG.channelAmount,
+      },
+      maxConcurrentStreams: details.maxConcurrentStreams || 10,
+    });
+    
+    this.registry.registerContract(contract);
+    this.serviceContracts.push(contract);
+    
+    console.log(`✓ [SUPPLIER] Service contract registered: ${contract.name}`);
+    console.log(`   Rate: ${contract.pricing.rate} drops/second`);
+    console.log(`   Cost per interval: ${contract.pricing.costPerInterval} drops every ${contract.pricing.frequency}s`);
+    
+    return contract;
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -220,6 +294,8 @@ class Consumer {
     this.totalPaid = 0;
     this.workUnitsVerified = 0;
     this.claimsGenerated = [];
+    this.activeContract = null;
+    this.receivedWorkData = []; // Store work data received from supplier
   }
   
   get address() {
@@ -255,18 +331,33 @@ class Consumer {
   /**
    * Start the streaming session as sender
    */
-  async startStream() {
+  async startStream(contract) {
     console.log('\n📡 [CONSUMER] Starting sender stream session...');
+    
+    if (!contract) {
+      throw new Error('Cannot start stream without a service contract');
+    }
+    
+    this.activeContract = contract;
+    
+    // Validate that payment rate matches contract frequency
+    const expectedRate = parseInt(contract.pricing.rate); // drops per second
+    const configuredRate = CONFIG.dropsPerWorkUnit; // assuming 1 second intervals
+    
+    if (Math.abs(expectedRate - configuredRate) > 1) {
+      console.warn(`   ⚠️  Warning: Configured rate (${configuredRate}) differs from contract rate (${expectedRate})`);
+    }
     
     const response = await apiRequest('post', '/stream/start', {
       channelId: this.channelId,
       walletSeed: this.wallet.seed,
-      ratePerSecond: CONFIG.dropsPerWorkUnit.toString(),
+      ratePerSecond: contract.pricing.rate, // Use contract rate
       role: 'sender',
     });
     
     console.log(`   ✓ Sender session active`);
-    console.log(`   Rate: ${formatDrops(CONFIG.dropsPerWorkUnit)}/sec`);
+    console.log(`   Rate: ${formatDrops(contract.pricing.rate)}/sec (from contract)`);
+    console.log(`   Payment frequency: Every ${contract.pricing.frequency}s`);
     
     return response.data;
   }
@@ -286,38 +377,59 @@ class Consumer {
   }
   
   /**
-   * Verify the supplier is doing work
+   * Receive work data from supplier
    */
-  verifyWork(workStatus) {
-    // Verification logic - in production this could include:
-    // - Cryptographic proof verification
-    // - Checking work against expected results
-    // - Validating checksums
-    // - Calling external verification services
-    
-    if (!workStatus) {
-      console.log('   ⚠️  [CONSUMER] No work status received');
+  receiveWork(workData) {
+    console.log(`   📩 [CONSUMER] Received work data for unit #${workData.unitId}`);
+    this.receivedWorkData.push(workData);
+  }
+  
+  /**
+   * Verify work using cryptographic proof
+   */
+  verifyWork(workData) {
+    if (!workData) {
+      console.log('   ⚠️  [CONSUMER] No work data to verify');
       return false;
     }
     
-    // Verify work is happening or recently completed
-    if (workStatus.isWorking) {
-      console.log(`   🔍 [CONSUMER] Verified: Work in progress (${workStatus.progress}%)`);
+    // Recompute the SHA256 hash from the work data
+    const dataToHash = JSON.stringify({
+      address: workData.address || this.activeContract.agentAddress,
+      unitId: workData.unitId,
+      completedAt: workData.completedAt,
+      metrics: workData.metrics,
+    });
+    
+    const computedProof = crypto.createHash('sha256').update(dataToHash).digest('hex');
+    
+    // Compare with supplier's proof
+    if (computedProof === workData.proof) {
+      console.log(`   ✅ [CONSUMER] Work verified! Proof matches (SHA256)`);
+      console.log(`      Unit #${workData.unitId}: ${computedProof.substring(0, 16)}...`);
+      this.workUnitsVerified++;
       return true;
+    } else {
+      console.log(`   ❌ [CONSUMER] Verification FAILED! Proof mismatch`);
+      console.log(`      Expected: ${workData.proof.substring(0, 16)}...`);
+      console.log(`      Computed: ${computedProof.substring(0, 16)}...`);
+      return false;
     }
-    
-    if (workStatus.latestResult && workStatus.totalCompleted > this.workUnitsVerified) {
-      // Verify the proof (simplified - in production, verify cryptographically)
-      const proof = workStatus.latestResult.proof;
-      if (proof && proof.length > 0) {
-        console.log(`   ✓ [CONSUMER] Verified: Work unit #${workStatus.latestResult.unitId} complete`);
-        this.workUnitsVerified = workStatus.totalCompleted;
-        return true;
-      }
-    }
-    
-    console.log('   ⏳ [CONSUMER] Waiting for verifiable work...');
-    return false;
+  }
+  
+  /**
+   * Check if there's unverified work data
+   */
+  hasUnverifiedWork() {
+    return this.receivedWorkData.length > this.workUnitsVerified;
+  }
+  
+  /**
+   * Get the latest unverified work data
+   */
+  getLatestWork() {
+    if (this.receivedWorkData.length === 0) return null;
+    return this.receivedWorkData[this.receivedWorkData.length - 1];
   }
   
   /**
@@ -380,6 +492,32 @@ async function runM2MDemo() {
   
   try {
     // ═══════════════════════════════════════════════════════════════════════
+    // PHASE 0: Setup Service Contract (Discovery)
+    // ═══════════════════════════════════════════════════════════════════════
+    
+    console.log('\n' + '═'.repeat(70));
+    console.log('  PHASE 0: SERVICE DISCOVERY & CONTRACT SETUP');
+    console.log('═'.repeat(70));
+    
+    // Supplier creates and registers their service contract
+    const serviceContract = await supplier.createServiceContract({
+      name: 'M2M Computational Work Service',
+      description: 'Real-time computational work with proof verification',
+      serviceType: 'compute',
+      category: 'infrastructure',
+      frequency: 1,
+      costPerInterval: CONFIG.dropsPerWorkUnit.toString(),
+      unit: 'per work unit',
+      minChannelAmount: CONFIG.channelAmount,
+      recommendedChannelAmount: CONFIG.channelAmount,
+      maxConcurrentStreams: 5,
+    });
+    
+    console.log('\n✅ Service contract ready for discovery!');
+    console.log(`   Contract ID: ${serviceContract.id}`);
+    console.log(`   Provider: ${serviceContract.agentAddress}`);
+    
+    // ═══════════════════════════════════════════════════════════════════════
     // PHASE 1: Setup Payment Channel
     // ═══════════════════════════════════════════════════════════════════════
     
@@ -390,9 +528,23 @@ async function runM2MDemo() {
     // Consumer creates payment channel to supplier
     const channelResult = await consumer.createPaymentChannel(supplier.address);
     
-    // Both parties start their streaming sessions
-    await consumer.startStream();
-    await supplier.startReceiving(consumer.channelId, consumer.publicKey);
+    // Register this channel as a subscription on the service contract
+    serviceContract.addSubscription(consumer.channelId, consumer.address, {
+      workUnits: CONFIG.totalWorkUnits,
+      startedAt: Date.now(),
+    });
+    
+    // Consumer registers to receive work data from supplier
+    supplier.registerConsumer(consumer.channelId, (workData) => {
+      consumer.receiveWork({
+        ...workData,
+        address: supplier.address, // Include supplier address for verification
+      });
+    });
+    
+    // Both parties start their streaming sessions with contract
+    await consumer.startStream(serviceContract);
+    await supplier.startReceiving(consumer.channelId, consumer.publicKey, serviceContract);
     
     console.log('\n✅ Payment infrastructure ready!');
     
@@ -418,24 +570,34 @@ async function runM2MDemo() {
       let paymentsForThisUnit = 0;
       const maxPaymentsPerUnit = 3;
       
+      // Use contract frequency for payment/verification interval (convert seconds to ms)
+      const paymentIntervalMs = serviceContract.pricing.frequency * 1000;
+      
       while (supplier.showWork().isWorking || paymentsForThisUnit === 0) {
-        await sleep(CONFIG.paymentIntervalMs);
+        await sleep(paymentIntervalMs);
         
-        // Consumer checks on supplier's work
-        const workStatus = supplier.showWork();
-        const isVerified = consumer.verifyWork(workStatus);
-        
-        // Only pay if work is verified
-        if (isVerified && paymentsForThisUnit < maxPaymentsPerUnit) {
-          const claim = await consumer.pushPayment();
+        // Check if consumer has received work data to verify
+        if (consumer.hasUnverifiedWork()) {
+          const workData = consumer.getLatestWork();
+          const isVerified = consumer.verifyWork(workData);
           
-          // Supplier validates the payment
-          const validation = await supplier.validateClaim(consumer.channelId, claim);
-          
-          if (validation.success) {
-            console.log(`   💰 [PAYMENT] ${formatDrops(claim.amount)} accumulated`);
-            claimsThisSession.push(claim);
-            paymentsForThisUnit++;
+          // Only pay if work is verified
+          if (isVerified && paymentsForThisUnit < maxPaymentsPerUnit) {
+            const claim = await consumer.pushPayment();
+            
+            // Supplier validates the payment
+            const validation = await supplier.validateClaim(consumer.channelId, claim);
+            
+            if (validation.success) {
+              console.log(`   💰 [PAYMENT] ${formatDrops(claim.amount)} accumulated`);
+              claimsThisSession.push(claim);
+              paymentsForThisUnit++;
+              
+              // Update the service contract subscription with latest claim
+              serviceContract.updateSubscription(consumer.channelId, claim.amount);
+            }
+          } else if (!isVerified) {
+            console.log(`   ⚠️  [CONSUMER] Skipping payment - work verification failed`);
           }
         }
         
@@ -462,6 +624,11 @@ async function runM2MDemo() {
       console.log(`   Duration: ${Math.floor(stopResult.stopped[0].duration / 1000)} seconds`);
       console.log(`   Final Amount: ${formatDrops(stopResult.stopped[0].finalAmount)}`);
     }
+    
+    // Complete the subscription on the service contract
+    serviceContract.removeSubscription(consumer.channelId);
+    console.log(`   ✓ Service subscription completed`);
+    console.log(`   Active subscriptions: ${serviceContract.getActiveSubscriptionCount()}`);
     
     // Get final status
     const finalStatus = await consumer.getStatus();
