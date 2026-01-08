@@ -1,89 +1,173 @@
 /**
  * converters.js
  * Utility functions for converting between XRP/drops and time-to-value calculations
- * 
+ *
  * Helps with conversions needed for streaming payments (e.g., cost per second).
  */
 
 /**
- * Convert XRP to drops
+ * Convert XRP to drops (original XRP function - kept for backward compatibility)
  * 1 XRP = 1,000,000 drops
- * 
+ *
  * @param {number|string} xrp - Amount in XRP
  * @returns {string} Amount in drops
  */
 function xrpToDrops(xrp) {
   const xrpNum = parseFloat(xrp);
-  
+
   if (isNaN(xrpNum) || xrpNum < 0) {
-    throw new Error('Invalid XRP amount');
+    throw new Error("Invalid XRP amount");
   }
-  
+
   // Use BigInt to avoid floating point precision issues
   const drops = Math.floor(xrpNum * 1000000);
   return drops.toString();
 }
 
 /**
- * Convert drops to XRP
- * 
+ * Convert USD to smallest unit (cents for RLUSD)
+ * 1 RLUSD = 100 cents
+ *
+ * @param {number|string} usd - Amount in USD
+ * @returns {string} Amount in cents
+ */
+function usdToCents(usd) {
+  const usdNum = parseFloat(usd);
+
+  if (isNaN(usdNum) || usdNum < 0) {
+    throw new Error("Invalid USD amount");
+  }
+
+  // Use Math.round to handle floating point precision
+  const cents = Math.round(usdNum * 100);
+  return cents.toString();
+}
+
+/**
+ * Convert drops to XRP (original XRP function - kept for backward compatibility)
+ *
  * @param {number|string} drops - Amount in drops
  * @returns {number} Amount in XRP
  */
 function dropsToXrp(drops) {
   const dropsNum = BigInt(drops);
-  
+
   if (dropsNum < 0n) {
-    throw new Error('Invalid drops amount');
+    throw new Error("Invalid drops amount");
   }
-  
+
   return Number(dropsNum) / 1000000;
 }
 
 /**
- * Format XRP amount for display
- * 
+ * Convert cents to USD
+ *
+ * @param {number|string} cents - Amount in cents
+ * @returns {number} Amount in USD
+ */
+function centsToUsd(cents) {
+  const centsNum = BigInt(cents);
+
+  if (centsNum < 0n) {
+    throw new Error("Invalid cents amount");
+  }
+
+  return Number(centsNum) / 100;
+}
+
+/**
+ * Format XRP amount for display (original XRP function - kept for backward compatibility)
+ *
  * @param {number} xrp - Amount in XRP
  * @param {number} decimals - Number of decimal places (default 6)
  * @returns {string} Formatted XRP amount
  */
 function formatXrp(xrp, decimals = 6) {
-  return parseFloat(xrp).toFixed(decimals) + ' XRP';
+  const formatted = parseFloat(xrp).toFixed(decimals);
+  // Add thousand separators for numbers >= 1000
+  const [whole, decimal] = formatted.split(".");
+  const withCommas = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return `${withCommas}.${decimal} XRP`;
 }
 
 /**
- * Calculate drops per unit of time
- * 
+ * Format RLUSD amount for display
+ *
+ * @param {number} usd - Amount in USD
+ * @param {number} decimals - Number of decimal places (default 2)
+ * @returns {string} Formatted RLUSD amount
+ */
+function formatRLUSD(usd, decimals = 2) {
+  const formatted = parseFloat(usd).toFixed(decimals);
+  // Add thousand separators and dollar sign
+  const [whole, decimal] = formatted.split(".");
+  const withCommas = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return `$${withCommas}.${decimal}`;
+}
+
+/**
+ * Calculate drops per unit of time (original XRP function - kept for backward compatibility)
+ *
  * @param {string|number} totalDrops - Total drops to stream
  * @param {number} duration - Duration in milliseconds
  * @param {string} unit - Time unit ('second', 'minute', 'hour')
  * @returns {string} Drops per unit
  */
-function calculateDropsPerUnit(totalDrops, duration, unit = 'second') {
+function calculateDropsPerUnit(totalDrops, duration, unit = "second") {
   const total = BigInt(totalDrops);
   const durationMs = BigInt(duration);
-  
+
   const unitMultipliers = {
     second: 1000n,
     minute: 60000n,
     hour: 3600000n,
   };
-  
+
   const multiplier = unitMultipliers[unit];
-  
+
   if (!multiplier) {
-    throw new Error('Invalid time unit. Use: second, minute, or hour');
+    throw new Error("Invalid time unit. Use: second, minute, or hour");
   }
-  
+
   // Calculate rate per unit
   const rate = (total * multiplier) / durationMs;
-  
+
   return rate.toString();
 }
 
 /**
- * Calculate streaming rate from cost and duration
- * 
+ * Calculate RLUSD cents per unit of time
+ *
+ * @param {string|number} totalCents - Total cents to stream
+ * @param {number} duration - Duration in milliseconds
+ * @param {string} unit - Time unit ('second', 'minute', 'hour')
+ * @returns {string} Cents per unit
+ */
+function calculateCentsPerUnit(totalCents, duration, unit = "second") {
+  const total = BigInt(totalCents);
+  const durationMs = BigInt(duration);
+
+  const unitMultipliers = {
+    second: 1000n,
+    minute: 60000n,
+    hour: 3600000n,
+  };
+
+  const multiplier = unitMultipliers[unit];
+
+  if (!multiplier) {
+    throw new Error("Invalid time unit. Use: second, minute, or hour");
+  }
+
+  // Calculate rate per unit
+  const rate = (total * multiplier) / durationMs;
+
+  return rate.toString();
+}
+
+/**
+ * Calculate streaming rate from cost and duration (original XRP function - kept for backward compatibility)
+ *
  * @param {number} costXrp - Total cost in XRP
  * @param {number} durationSeconds - Duration in seconds
  * @returns {object} Rate information
@@ -91,11 +175,11 @@ function calculateDropsPerUnit(totalDrops, duration, unit = 'second') {
 function calculateStreamingRate(costXrp, durationSeconds) {
   const totalDrops = BigInt(xrpToDrops(costXrp));
   const duration = BigInt(durationSeconds);
-  
+
   const dropsPerSecond = totalDrops / duration;
   const dropsPerMinute = dropsPerSecond * 60n;
   const dropsPerHour = dropsPerSecond * 3600n;
-  
+
   return {
     totalDrops: totalDrops.toString(),
     totalXrp: costXrp,
@@ -106,12 +190,50 @@ function calculateStreamingRate(costXrp, durationSeconds) {
     xrpPerSecond: dropsToXrp(dropsPerSecond.toString()),
     xrpPerMinute: dropsToXrp(dropsPerMinute.toString()),
     xrpPerHour: dropsToXrp(dropsPerHour.toString()),
+    formatted: {
+      perSecond: formatXrp(dropsToXrp(dropsPerSecond.toString())),
+      perMinute: formatXrp(dropsToXrp(dropsPerMinute.toString())),
+      perHour: formatXrp(dropsToXrp(dropsPerHour.toString())),
+    },
+  };
+}
+
+/**
+ * Calculate streaming rate from cost and duration (RLUSD version)
+ *
+ * @param {number} costUSD - Total cost in USD
+ * @param {number} durationSeconds - Duration in seconds
+ * @returns {object} Rate information
+ */
+function calculateRLUSDStreamingRate(costUSD, durationSeconds) {
+  const totalCents = BigInt(usdToCents(costUSD));
+  const duration = BigInt(durationSeconds);
+
+  const centsPerSecond = totalCents / duration;
+  const centsPerMinute = centsPerSecond * 60n;
+  const centsPerHour = centsPerSecond * 3600n;
+
+  return {
+    totalCents: totalCents.toString(),
+    totalUSD: costUSD,
+    durationSeconds: durationSeconds,
+    centsPerSecond: centsPerSecond.toString(),
+    centsPerMinute: centsPerMinute.toString(),
+    centsPerHour: centsPerHour.toString(),
+    usdPerSecond: centsToUsd(centsPerSecond.toString()),
+    usdPerMinute: centsToUsd(centsPerMinute.toString()),
+    usdPerHour: centsToUsd(centsPerHour.toString()),
+    formatted: {
+      perSecond: formatRLUSD(centsToUsd(centsPerSecond.toString())),
+      perMinute: formatRLUSD(centsToUsd(centsPerMinute.toString())),
+      perHour: formatRLUSD(centsToUsd(centsPerHour.toString())),
+    },
   };
 }
 
 /**
  * Calculate how long a channel will last at a given rate
- * 
+ *
  * @param {string} channelBalance - Channel balance in drops
  * @param {string} dropsPerSecond - Streaming rate in drops per second
  * @returns {object} Duration information
@@ -119,7 +241,7 @@ function calculateStreamingRate(costXrp, durationSeconds) {
 function calculateChannelDuration(channelBalance, dropsPerSecond) {
   const balance = BigInt(channelBalance);
   const rate = BigInt(dropsPerSecond);
-  
+
   if (rate === 0n) {
     return {
       seconds: Infinity,
@@ -128,9 +250,9 @@ function calculateChannelDuration(channelBalance, dropsPerSecond) {
       days: Infinity,
     };
   }
-  
+
   const totalSeconds = balance / rate;
-  
+
   return {
     totalSeconds: Number(totalSeconds),
     seconds: Number(totalSeconds % 60n),
@@ -143,7 +265,7 @@ function calculateChannelDuration(channelBalance, dropsPerSecond) {
 
 /**
  * Format duration in seconds to human-readable string
- * 
+ *
  * @param {number} seconds - Duration in seconds
  * @returns {string} Formatted duration
  */
@@ -152,20 +274,20 @@ function formatDuration(seconds) {
   const hours = Math.floor((seconds % 86400) / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
   const secs = seconds % 60;
-  
+
   const parts = [];
-  
+
   if (days > 0) parts.push(`${days}d`);
   if (hours > 0) parts.push(`${hours}h`);
   if (minutes > 0) parts.push(`${minutes}m`);
   if (secs > 0 || parts.length === 0) parts.push(`${secs}s`);
-  
-  return parts.join(' ');
+
+  return parts.join(" ");
 }
 
 /**
  * Calculate cost for a specific duration at a given rate
- * 
+ *
  * @param {string} dropsPerSecond - Rate in drops per second
  * @param {number} durationSeconds - Duration in seconds
  * @returns {object} Cost information
@@ -173,9 +295,9 @@ function formatDuration(seconds) {
 function calculateCost(dropsPerSecond, durationSeconds) {
   const rate = BigInt(dropsPerSecond);
   const duration = BigInt(durationSeconds);
-  
+
   const totalDrops = rate * duration;
-  
+
   return {
     totalDrops: totalDrops.toString(),
     totalXrp: dropsToXrp(totalDrops.toString()),
@@ -185,18 +307,22 @@ function calculateCost(dropsPerSecond, durationSeconds) {
 
 /**
  * Calculate how much has been streamed based on elapsed time
- * 
+ *
  * @param {string} dropsPerSecond - Rate in drops per second
  * @param {number} startTime - Start timestamp in milliseconds
  * @param {number} currentTime - Current timestamp in milliseconds (default: now)
  * @returns {object} Streamed amount information
  */
-function calculateStreamedAmount(dropsPerSecond, startTime, currentTime = Date.now()) {
+function calculateStreamedAmount(
+  dropsPerSecond,
+  startTime,
+  currentTime = Date.now()
+) {
   const rate = BigInt(dropsPerSecond);
   const elapsedSeconds = BigInt(Math.floor((currentTime - startTime) / 1000));
-  
+
   const streamedDrops = rate * elapsedSeconds;
-  
+
   return {
     elapsedSeconds: Number(elapsedSeconds),
     elapsedFormatted: formatDuration(Number(elapsedSeconds)),
@@ -208,19 +334,23 @@ function calculateStreamedAmount(dropsPerSecond, startTime, currentTime = Date.n
 
 /**
  * Calculate suggested channel amount based on expected usage
- * 
+ *
  * @param {string} dropsPerSecond - Expected rate in drops per second
  * @param {number} expectedDurationSeconds - Expected streaming duration
  * @param {number} buffer - Buffer multiplier (default 1.2 = 20% extra)
  * @returns {object} Suggested channel amount
  */
-function suggestChannelAmount(dropsPerSecond, expectedDurationSeconds, buffer = 1.2) {
+function suggestChannelAmount(
+  dropsPerSecond,
+  expectedDurationSeconds,
+  buffer = 1.2
+) {
   const rate = BigInt(dropsPerSecond);
   const duration = BigInt(expectedDurationSeconds);
-  
+
   const baseAmount = rate * duration;
   const bufferedAmount = BigInt(Math.floor(Number(baseAmount) * buffer));
-  
+
   return {
     baseDrops: baseAmount.toString(),
     baseXrp: dropsToXrp(baseAmount.toString()),
@@ -234,7 +364,7 @@ function suggestChannelAmount(dropsPerSecond, expectedDurationSeconds, buffer = 
 /**
  * Parse time string to seconds
  * Supports formats like: "1h", "30m", "1h 30m", "90s"
- * 
+ *
  * @param {string} timeString - Time string to parse
  * @returns {number} Duration in seconds
  */
@@ -245,27 +375,29 @@ function parseTimeString(timeString) {
     h: 3600,
     d: 86400,
   };
-  
+
   let totalSeconds = 0;
   const pattern = /(\d+)([smhd])/g;
   let match;
-  
+
   while ((match = pattern.exec(timeString)) !== null) {
     const value = parseInt(match[1]);
     const unit = match[2];
     totalSeconds += value * units[unit];
   }
-  
+
   if (totalSeconds === 0) {
-    throw new Error('Invalid time string format. Use formats like: "1h", "30m", "1h 30m"');
+    throw new Error(
+      'Invalid time string format. Use formats like: "1h", "30m", "1h 30m"'
+    );
   }
-  
+
   return totalSeconds;
 }
 
 /**
  * Calculate percentage of channel used
- * 
+ *
  * @param {string} totalAmount - Total channel amount in drops
  * @param {string} usedAmount - Amount already claimed in drops
  * @returns {object} Usage information
@@ -274,10 +406,10 @@ function calculateChannelUsage(totalAmount, usedAmount) {
   const total = BigInt(totalAmount);
   const used = BigInt(usedAmount);
   const remaining = total - used;
-  
+
   const percentUsed = total > 0n ? Number((used * 10000n) / total) / 100 : 0;
   const percentRemaining = 100 - percentUsed;
-  
+
   return {
     totalDrops: total.toString(),
     totalXrp: dropsToXrp(total.toString()),
@@ -292,7 +424,7 @@ function calculateChannelUsage(totalAmount, usedAmount) {
 
 /**
  * Validate drops amount
- * 
+ *
  * @param {string} drops - Amount in drops
  * @returns {boolean} True if valid
  */
@@ -306,6 +438,7 @@ function isValidDropsAmount(drops) {
 }
 
 module.exports = {
+  // Original XRP functions (backward compatibility)
   xrpToDrops,
   dropsToXrp,
   formatXrp,
@@ -319,5 +452,11 @@ module.exports = {
   parseTimeString,
   calculateChannelUsage,
   isValidDropsAmount,
-};
 
+  // New RLUSD functions
+  usdToCents,
+  centsToUsd,
+  formatRLUSD,
+  calculateCentsPerUnit,
+  calculateRLUSDStreamingRate,
+};

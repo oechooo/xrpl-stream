@@ -1,0 +1,190 @@
+XRPL STREAMING API ROUTES - XRP vs RLUSD
+==============================================
+
+BOTH APPROACHES ARE 100% XRPL-NATIVE
+- XRP: Uses XRPL Payment Channels (specialized streaming feature)  
+- RLUSD: Uses XRPL Payment Transactions (generic payment feature)
+- Both connect to same XRPL network, use XRPL addresses, XRPL signing, XRPL fees
+
+XRP PAYMENT CHANNEL ROUTES (XRPL Payment Channels - Off-chain signatures)
+--------------------------------------------------------------------------
+Base Path: /api/stream/
+
+POST /api/stream/start
+  Purpose: Start XRP payment channel streaming session
+  Body: {
+    channelId: string,
+    walletSeed: string (sender only),
+    ratePerSecond: number (drops),
+    role: 'sender' | 'receiver',
+    publicKey: string (receiver only)
+  }
+
+POST /api/stream/stop  
+  Purpose: Stop XRP streaming session
+  Body: {
+    channelId: string,
+    role: string (optional)
+  }
+
+GET /api/stream/claim
+  Purpose: Get signed claim from sender
+  Query: {
+    channelId: string,
+    role: 'sender'
+  }
+
+POST /api/stream/validate
+  Purpose: Validate claim signature (receiver side)
+  Body: {
+    channelId: string,
+    amount: string (drops),
+    signature: string,
+    publicKey: string
+  }
+
+POST /api/stream/finalize
+  Purpose: Submit claim to XRPL blockchain (finalize payment)
+  Body: {
+    channelId: string,
+    amount: string (drops),
+    signature: string,
+    publicKey: string,
+    receiverSeed: string
+  }
+
+GET /api/stream/status
+  Purpose: Get XRP streaming session status
+  Query: {
+    channelId: string
+  }
+
+GET /api/stream/history
+  Purpose: Get XRP streaming history
+  Query: {XRPL Payment Transactions - Direct execution)
+-----------------    channelId: string
+  }
+
+
+RLUSD DIRECT PAYMENT ROUTES (Direct Payment Transactions)
+----------------------------------------------------------
+Base Path: /api/rlusd/
+
+POST /api/rlusd/stream/start
+  Purpose: Start RLUSD direct payment streaming
+  Body: {
+    senderSeed: string,
+    receiverAddress: string,
+    totalAmount: string (RLUSD amount like "10.00"),
+    duration: number (seconds, default 3600),
+    intervalSeconds: number (default 60)
+  }
+
+POST /api/rlusd/stream/payment
+  Purpose: Execute next RLUSD payment in the stream
+  Body: {
+    sessionKey: string
+  }
+
+GET /api/rlusd/stream/status/:sessionKey
+  Purpose: Get RLUSD stream status
+  Params: sessionKey (from start response)
+
+POST /api/rlusd/stream/stop
+  Purpose: Stop RLUSD streaming
+  Body: {
+    sessionKey: string
+  }
+
+GET /api/rlusd/streams/active
+  Purpose: List all active RLUSD streams
+
+
+KEY DIFFERENCES
+===============
+
+BOTH USE XRPL INFRASTRUCTURE:
+- Both connect to XRPL network (testnet/mainnet)
+- Both use XRPL account addresses  
+- Both use XRPL cryptographic signing
+- Both pay XRPL transaction fees
+- Both submit transactions to XRPL ledger
+- Both use XRPL result codes and metadata
+
+DIFFERENT XRPL FEATURES USED:
+
+1. TRANSACTION TYPES:
+   - XRP: PaymentChannelCreate, PaymentChannelClaim, PaymentChannelFund
+   - RLUSD: Payment (standard XRPL payment transactions)
+
+2. CURRENCY HANDLING:
+   - XRP: Native XRPL currency (drops format)
+   - RLUSD: XRPL issued currency (currency object format)
+
+3. IDENTIFICATION:
+   - XRP: Uses channelId (XRPL PayChannel ledger object ID)
+   - RLUSD: Uses sessionKey (server-generated session identifier)
+
+4. WORKFLOW:
+   - XRP: start → claim → validate → finalize (off-chain + on-chain)
+   - RLUSD: start → payment → payment → ... → stop (all on-chain)
+
+5. EXECUTION PATTERN:
+   - XRP: Off-chain signatures, single on-chain finalization
+   - RLUSD: Direct on-chain payments for each transfer
+
+6. AMOUNT FORMAT:
+   - XRP: drops (integer: "1000000" = 1 XRP)
+   - RLUSD: USD decimal string ("1.50" = $1.50 RLUSD)
+
+7. FEE STRUCTURE:
+   - XRP: 2 XRPL tx fees total (create channel + finalize claim)
+   - RLUSD: 1 XRPL tx fee per payment execution
+
+8. LEDGER STATE:
+   - XRP: Creates PayChannel ledger object on XRPL
+   - RLUSD: Creates Payment ledger entries per transaction
+
+9. VALIDATION:
+   - XRP: XRPL cryptographic signature validation  
+   - RLUSD: XRPL transaction validation (automatic)
+
+10. TRUST REQUIREMENTS:
+    - XRP: No trust lines needed (native currency)
+    - RLUSD: Receiver must trust RLUSD issuer on XRPL
+
+
+EXAMPLE USAGE FLOWS
+===================
+
+XRP Flow (XRPL Payment Channels):
+1. POST /api/stream/start (sender creates session with channelId)
+2. POST /api/stream/start (receiver joins with same channelId) 
+3. GET /api/stream/claim (sender generates XRPL-signed claim)
+4. POST /api/stream/validate (receiver validates XRPL signature)
+5. POST /api/stream/finalize (receiver submits PaymentChannelClaim to XRPL)
+6. POST /api/stream/stop (cleanup)
+
+RLUSD Flow (XRPL Payment Transactions):
+1. POST /api/rlusd/stream/start (setup payment schedule)
+2. POST /api/rlusd/stream/payment (execute XRPL Payment transaction 1)
+3. POST /api/rlusd/stream/payment (execute XRPL Payment transaction 2)
+4. ... (repeat XRPL Payment transactions until complete)
+5. POST /api/rlusd/stream/stop (optional cleanup)
+
+BOTH FLOWS RESULT IN XRPL LEDGER ENTRIES:
+- XRP: Creates PayChannel object + final Payment entry
+- RLUSD: Creates multiple Payment entries directly
+
+
+SERVER INTEGRATION
+==================
+Both route sets are mounted in server.js and connect to the same XRPL network:
+
+app.use('/api/stream', streamRoutes);        // XRP Payment Channels (XRPL native)
+app.use('/api/rlusd', rlusdRoutes);          // RLUSD Direct Payments (XRPL native)
+
+Root endpoint (GET /) shows both sets in API documentation.
+
+XRPL NETWORK CONNECTIVITY:
+Both systems use the same XRPL client connection and submit to the same ledger.
