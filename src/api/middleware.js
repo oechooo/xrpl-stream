@@ -229,10 +229,14 @@ function securityHeaders(req, res, next) {
 
 /**
  * Health check bypass middleware
- * Allows health checks without authentication
+ * Allows health checks and demo endpoints without authentication
  */
 function healthCheckBypass(req, res, next) {
-  if (req.path === '/health' || req.path === '/') {
+  // req.path is relative to where this middleware is mounted (e.g., /api)
+  // So /api/m2m/start becomes /m2m/start here
+  const bypassPaths = ['/health', '/', '/m2m', '/m2m/start', '/m2m/status', '/m2m/config'];
+  
+  if (bypassPaths.some(p => req.path === p || req.path.startsWith(p + '/'))) {
     return next('route'); // Skip to next route handler
   }
   next();
