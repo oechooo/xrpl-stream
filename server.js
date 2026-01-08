@@ -7,6 +7,7 @@ const express = require('express');
 const config = require('./config');
 const { getClientManager } = require('./src/utils/xrplClient');
 const streamRoutes = require('./src/api/streamRoutes');
+const m2mDemoRoutes = require('./src/api/m2mDemoRoutes');
 const {
   configureCORS,
   createRateLimiter,
@@ -84,6 +85,9 @@ if (config.security.enableRateLimiting) {
   app.use('/api', rateLimiter);
 }
 
+// M2M Demo routes - mounted BEFORE auth middleware (public demo)
+app.use('/api/m2m', m2mDemoRoutes);
+
 // Authentication middleware (skip health checks)
 if (config.security.enableApiKeyAuth) {
   app.use('/api', healthCheckBypass, authenticateApiKey);
@@ -141,6 +145,9 @@ async function startServer() {
       console.log(`  Finalize Stream: POST /api/stream/finalize`);
       console.log(`  Get Status: GET /api/stream/status?channelId=<id>`);
       console.log(`  Get History: GET /api/stream/history?channelId=<id>`);
+      console.log('\nM2M Demo:');
+      console.log(`  Demo UI: http://localhost:${config.server.port}/m2m-demo.html`);
+      console.log(`  Start Demo (SSE): GET /api/m2m/start`);
       console.log('\n' + '='.repeat(50));
       
       if (!config.security.enableApiKeyAuth) {
