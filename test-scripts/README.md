@@ -79,6 +79,30 @@ node test-scripts/5-close-channel.js <CHANNEL_ID>
 
 ---
 
+### 6️⃣ Machine-to-Machine Demo (Complete End-to-End)
+```bash
+node test-scripts/6-m2m-streaming-demo.js
+```
+**What it does:** 
+- Creates Consumer and Supplier "machines"
+- Consumer needs work done, Supplier provides compute services
+- Consumer creates payment channel automatically
+- Supplier does work in increments
+- Consumer verifies work and pays incrementally
+- Payments only flow when work is verified
+- Finalizes payment on-chain at the end
+
+**No arguments needed!** This script handles the entire flow automatically.
+
+**Perfect for demonstrating:**
+- IoT payment scenarios
+- Pay-per-use compute services
+- API call billing
+- Machine learning inference payments
+- Any M2M micropayment use case
+
+---
+
 ## 🎮 Quick Test (All in One)
 
 ```bash
