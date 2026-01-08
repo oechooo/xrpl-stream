@@ -105,7 +105,7 @@ async function fullRLUSDStreamingTest() {
 
     const totalAmount = "5.00"; // 5 RLUSD
     const duration = 300; // 5 minutes for testing
-    const intervalSeconds = 30; // Payment every 30 seconds
+    const intervalSeconds = 1; // Payment every 30 seconds
     const paymentCount = Math.floor(duration / intervalSeconds); // 10 payments
     const paymentAmount = (parseFloat(totalAmount) / paymentCount).toFixed(2);
 

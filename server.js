@@ -94,8 +94,12 @@ if (config.security.enableRateLimiting) {
   app.use("/api", rateLimiter);
 }
 
-// M2M Demo routes - mounted BEFORE auth middleware (public demo)
+// Demo routes - mounted BEFORE auth middleware (public demos)
 app.use("/api/m2m", m2mDemoRoutes);
+
+// RLUSD Demo routes - mount before auth for public access
+const { rlusdDemoRouter } = require("./src/api/rlusdRoutes");
+app.use("/api/rlusd/demo", rlusdDemoRouter);
 
 // Authentication middleware (skip health checks)
 if (config.security.enableApiKeyAuth) {
@@ -166,7 +170,9 @@ async function startServer() {
       console.log('\nDemo UI:');
       console.log(`  Main Demo: http://localhost:${config.server.port}/streaming-demo.html`);
       console.log(`  Legacy M2M: http://localhost:${config.server.port}/m2m-demo.html`);
-      console.log(`  M2M API (SSE): GET /api/m2m/start`);
+      console.log('\nDemo API (SSE):');
+      console.log(`  XRP M2M Demo: GET /api/m2m/start`);
+      console.log(`  RLUSD Demo: GET /api/rlusd/demo/start`);
       console.log('\n' + '='.repeat(50));
       
       if (!config.security.enableApiKeyAuth) {

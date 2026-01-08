@@ -1407,18 +1407,18 @@
             
             <div class="config-group">
               <label class="config-label">
-                Duration (minutes)
-                <span class="config-value rlusd-value" id="rlusdDurationDisplay">5</span>
+                Number of Payments
+                <span class="config-value rlusd-value" id="rlusdPaymentCountDisplay">10</span>
               </label>
-              <input type="range" class="config-slider" id="configRlusdDuration" min="1" max="60" value="5" step="1" oninput="updateRlusdConfigDisplay()">
+              <input type="range" class="config-slider" id="configRlusdPaymentCount" min="3" max="50" value="10" step="1" oninput="updateRlusdConfigDisplay()">
             </div>
             
             <div class="config-group">
               <label class="config-label">
                 Payment Interval (seconds)
-                <span class="config-value rlusd-value" id="rlusdIntervalDisplay">30</span>
+                <span class="config-value rlusd-value" id="rlusdIntervalDisplay">1</span>
               </label>
-              <input type="range" class="config-slider" id="configRlusdInterval" min="10" max="120" value="30" step="10" oninput="updateRlusdConfigDisplay()">
+              <input type="range" class="config-slider" id="configRlusdInterval" min="1" max="30" value="1" step="1" oninput="updateRlusdConfigDisplay()">
             </div>
           </div>
 
@@ -1444,12 +1444,12 @@
           </div>
           
           <div class="estimated-row rlusd-only">
-            <span class="estimated-label">Total Payments</span>
-            <span class="estimated-value" id="rlusdPaymentCount" style="color: var(--accent-blue);">10</span>
-          </div>
-          <div class="estimated-row rlusd-only">
             <span class="estimated-label">Per Payment</span>
             <span class="estimated-value" id="rlusdPerPayment" style="color: var(--accent-green);">$1.00</span>
+          </div>
+          <div class="estimated-row rlusd-only">
+            <span class="estimated-label">Est. Duration</span>
+            <span class="estimated-value" id="rlusdEstDuration" style="color: var(--accent-blue);">~10s</span>
           </div>
           <div class="estimated-row rlusd-only">
             <span class="estimated-label">Est. TX Fees</span>
@@ -1786,24 +1786,23 @@
     // Update RLUSD config display
     function updateRlusdConfigDisplay() {
       const amount = document.getElementById('configRlusdAmount').value;
-      const duration = document.getElementById('configRlusdDuration').value;
+      const paymentCount = document.getElementById('configRlusdPaymentCount').value;
       const interval = document.getElementById('configRlusdInterval').value;
       
       document.getElementById('rlusdAmountDisplay').textContent = `$${parseFloat(amount).toFixed(2)}`;
-      document.getElementById('rlusdDurationDisplay').textContent = duration;
+      document.getElementById('rlusdPaymentCountDisplay').textContent = paymentCount;
       document.getElementById('rlusdIntervalDisplay').textContent = interval;
       
-      // Calculate payment count and per-payment amount
-      const durationSeconds = parseInt(duration) * 60;
-      const paymentCount = Math.floor(durationSeconds / parseInt(interval));
-      const perPayment = (parseFloat(amount) / paymentCount).toFixed(2);
-      const estFees = (paymentCount * 0.00001).toFixed(6);
+      // Calculate per-payment amount and estimated duration
+      const perPayment = (parseFloat(amount) / parseInt(paymentCount)).toFixed(2);
+      const estFees = (parseInt(paymentCount) * 0.00001).toFixed(6);
+      const totalDuration = parseInt(paymentCount) * parseInt(interval);
       
-      document.getElementById('rlusdPaymentCount').textContent = paymentCount;
       document.getElementById('rlusdPerPayment').textContent = `$${perPayment}`;
+      document.getElementById('rlusdEstDuration').textContent = `~${totalDuration}s`;
       document.getElementById('rlusdEstFees').textContent = `~${estFees} XRP`;
       
-      totalUnits = paymentCount;
+      totalUnits = parseInt(paymentCount);
       initPaymentUnits();
       document.getElementById('statUnits').textContent = `0/${totalUnits}`;
     }
@@ -2040,109 +2039,204 @@
       };
     }
 
-    // Start RLUSD Demo (simulation - backend not ready)
+    // Start RLUSD Demo (connects to real backend)
     function startRLUSDDemo() {
       resetUI();
       
-      const amount = parseFloat(document.getElementById('configRlusdAmount').value);
-      const duration = parseInt(document.getElementById('configRlusdDuration').value) * 60; // to seconds
+      const amount = document.getElementById('configRlusdAmount').value;
+      const paymentCount = parseInt(document.getElementById('configRlusdPaymentCount').value);
       const interval = parseInt(document.getElementById('configRlusdInterval').value);
-      const paymentCount = Math.floor(duration / interval);
-      const perPayment = amount / paymentCount;
+      const duration = paymentCount * interval; // Calculate duration from payments × interval
       
       totalUnits = paymentCount;
       initPaymentUnits();
       document.getElementById('statUnits').textContent = `0/${totalUnits}`;
       
-      // Simulated addresses
-      const senderAddr = 'rSenderXXXXXXXXXXXXXXXXXXXXXXXXXX';
-      const receiverAddr = 'rReceiverXXXXXXXXXXXXXXXXXXXXXXXX';
+      // Build query params for SSE endpoint
+      const queryParams = new URLSearchParams({
+        totalAmount: amount,
+        duration: duration.toString(),
+        intervalSeconds: interval.toString()
+      }).toString();
       
-      document.getElementById('senderAddress').textContent = formatAddress(senderAddr);
-      document.getElementById('receiverAddress').textContent = formatAddress(receiverAddr);
-      document.getElementById('senderMachine').classList.add('active');
-      document.getElementById('receiverMachine').classList.add('active');
+      addLog('Connecting to RLUSD streaming backend...', 'phase');
       
-      addLog('Initializing RLUSD stream...', 'phase');
+      // Connect to real SSE endpoint
+      eventSource = new EventSource(`/api/rlusd/demo/start?${queryParams}`);
       
-      // Show session card
-      setTimeout(() => {
+      let senderAddr = '';
+      let receiverAddr = '';
+      let sessionInterval = interval;
+      
+      // Handle initialization
+      eventSource.addEventListener('init', (e) => {
+        const data = JSON.parse(e.data);
+        senderAddr = data.sender.address;
+        receiverAddr = data.receiver.address;
+        
+        document.getElementById('senderAddress').textContent = formatAddress(senderAddr);
+        document.getElementById('receiverAddress').textContent = formatAddress(receiverAddr);
+        document.getElementById('senderMachine').classList.add('active');
+        document.getElementById('receiverMachine').classList.add('active');
+        
+        addLog('Wallets initialized', 'phase');
+        addLog(`Config: ${data.config.totalAmount} in ${data.config.paymentCount} payments`, 'info');
+      });
+      
+      // Handle phase changes
+      eventSource.addEventListener('phase', (e) => {
+        const data = JSON.parse(e.data);
+        addLog(data.message, 'phase');
+        
+        // Update phase indicators
+        const phaseMap = {
+          'init': 'rlusd-phase-init',
+          'balance_check': 'rlusd-phase-init',
+          'session': 'rlusd-phase-session',
+          'streaming': 'rlusd-phase-streaming',
+          'complete': 'rlusd-phase-complete'
+        };
+        
+        const phaseId = phaseMap[data.phase];
+        if (phaseId) {
+          document.querySelectorAll('.phase-dot').forEach(dot => dot.classList.remove('active'));
+          const dot = document.getElementById(phaseId);
+          if (dot) {
+            dot.classList.add('active');
+            // Mark previous phases as completed
+            const phases = ['rlusd-phase-init', 'rlusd-phase-session', 'rlusd-phase-streaming', 'rlusd-phase-complete'];
+            const currentIndex = phases.indexOf(phaseId);
+            phases.slice(0, currentIndex).forEach(p => {
+              const el = document.getElementById(p);
+              if (el) el.classList.add('completed');
+            });
+          }
+        }
+      });
+      
+      // Handle balance check
+      eventSource.addEventListener('balance_checked', (e) => {
+        const data = JSON.parse(e.data);
+        addLog(`Balance: ${data.balance} ✓`, 'info');
+      });
+      
+      // Handle session creation
+      eventSource.addEventListener('session_created', (e) => {
+        const data = JSON.parse(e.data);
+        
         document.getElementById('sessionCard').style.display = 'block';
-        const sessionKey = `${formatAddress(senderAddr)}-${formatAddress(receiverAddr)}`;
-        document.getElementById('sessionId').textContent = sessionKey;
-        document.getElementById('sessionRate').textContent = `$${(perPayment / interval).toFixed(4)}/sec`;
-        document.getElementById('sessionInterval').textContent = `${interval}s`;
+        document.getElementById('sessionId').textContent = formatAddress(data.sessionKey);
+        document.getElementById('sessionRate').textContent = `${data.paymentAmount}/payment`;
+        document.getElementById('sessionInterval').textContent = `${data.intervalSeconds}s`;
         
-        addLog('Session created: ' + sessionKey, 'info');
-        addLog(`Streaming $${amount.toFixed(2)} in ${paymentCount} payments`, 'info');
+        sessionInterval = data.intervalSeconds;
+        totalUnits = data.paymentCount;
+        initPaymentUnits();
         
-        document.getElementById('currencyFlowLine').classList.add('animating');
-        document.getElementById('statRate').textContent = `$${(perPayment / interval).toFixed(4)}`;
+        addLog(`Session created: ${formatAddress(data.sessionKey)}`, 'info');
         
         // Add session transaction
         addTransaction({
           type: 'session',
           timestamp: Date.now(),
-          from: senderAddr,
-          to: receiverAddr,
-          amount: `$${amount.toFixed(2)} (total)`,
+          from: data.senderAddress,
+          to: data.receiverAddress,
+          amount: `${data.totalAmount} (total)`,
           txHash: null,
           status: 'Started'
         });
+      });
+      
+      // Handle stream started
+      eventSource.addEventListener('stream_started', (e) => {
+        const data = JSON.parse(e.data);
+        document.getElementById('currencyFlowLine').classList.add('animating');
+        document.getElementById('statRate').textContent = data.rate;
+        addLog(`Streaming at ${data.rate}`, 'info');
+      });
+      
+      // Handle payment pending
+      eventSource.addEventListener('payment_pending', (e) => {
+        const data = JSON.parse(e.data);
+        const unit = document.getElementById(`paymentUnit-${data.paymentNumber}`);
+        if (unit) {
+          unit.classList.add('active');
+        }
+      });
+      
+      // Handle countdown
+      eventSource.addEventListener('countdown', (e) => {
+        const data = JSON.parse(e.data);
+        document.getElementById('sessionNextPayment').textContent = `${data.nextPaymentIn}s`;
+      });
+      
+      // Handle actual payment
+      eventSource.addEventListener('payment', (e) => {
+        const data = JSON.parse(e.data);
         
-        // Simulate payments
-        let paymentsCompleted = 0;
-        let totalSent = 0;
-        let totalFees = 0;
+        // Update progress
+        document.getElementById('progressFill').style.width = data.progress + '%';
+        document.getElementById('progressPercent').textContent = data.progress + '%';
         
-        simulationInterval = setInterval(() => {
-          paymentsCompleted++;
-          totalSent += perPayment;
-          totalFees += 0.00001;
-          
-          const progress = (paymentsCompleted / paymentCount) * 100;
-          document.getElementById('progressFill').style.width = progress + '%';
-          document.getElementById('progressPercent').textContent = Math.round(progress) + '%';
-          
-          const unit = document.getElementById(`paymentUnit-${paymentsCompleted}`);
-          if (unit) {
-            unit.classList.add('completed');
-          }
-          
-          document.getElementById('statTotalPaid').innerHTML = `<span class="xrp-only">0.000000</span><span class="rlusd-only">$${totalSent.toFixed(2)}</span>`;
-          document.getElementById('statPayments').textContent = paymentsCompleted;
-          document.getElementById('statUnits').textContent = `${paymentsCompleted}/${totalUnits}`;
-          document.getElementById('totalFeesSpent').textContent = `${totalFees.toFixed(6)} XRP`;
-          document.getElementById('sessionElapsed').textContent = `${paymentsCompleted * interval}s`;
-          document.getElementById('sessionNextPayment').textContent = paymentsCompleted < paymentCount ? `${interval}s` : 'Done';
-          
-          // Simulated tx hash
-          const fakeTxHash = 'SIMULATED_' + Math.random().toString(36).substring(2, 15).toUpperCase();
-          
-          addLog(`Payment ${paymentsCompleted}/${paymentCount}: $${perPayment.toFixed(2)}`, 'payment');
-          
-          addTransaction({
-            type: 'payment',
-            timestamp: Date.now(),
-            from: senderAddr,
-            to: receiverAddr,
-            amount: `$${perPayment.toFixed(2)}`,
-            txHash: fakeTxHash,
-            status: 'Success'
-          });
-          
-          if (paymentsCompleted >= paymentCount) {
-            clearInterval(simulationInterval);
-            completeDemo({
-              workUnitsCompleted: paymentCount,
-              totalPaidXRP: totalSent.toFixed(2),
-              duration: Math.round((Date.now() - startTime) / 1000),
-              totalFees: totalFees.toFixed(6)
-            });
-          }
-        }, 1500); // Faster simulation (1.5s intervals)
+        // Update unit display
+        const unit = document.getElementById(`paymentUnit-${data.paymentNumber}`);
+        if (unit) {
+          unit.classList.remove('active');
+          unit.classList.add('completed');
+        }
         
-      }, 1000);
+        // Update stats
+        document.getElementById('statTotalPaid').innerHTML = `<span class="xrp-only">0.000000</span><span class="rlusd-only">${data.totalSent}</span>`;
+        document.getElementById('statPayments').textContent = data.paymentNumber;
+        document.getElementById('statUnits').textContent = `${data.paymentNumber}/${data.totalPayments}`;
+        document.getElementById('totalFeesSpent').textContent = data.totalFees;
+        document.getElementById('sessionElapsed').textContent = `${data.paymentNumber * sessionInterval}s`;
+        
+        addLog(`Payment ${data.paymentNumber}/${data.totalPayments}: ${data.amount}`, 'payment');
+      });
+      
+      // Handle transaction events
+      eventSource.addEventListener('transaction', (e) => {
+        const data = JSON.parse(e.data);
+        addTransaction({
+          type: data.type,
+          timestamp: data.timestamp,
+          from: data.from,
+          to: data.to,
+          amount: data.amount,
+          txHash: data.txHash,
+          status: data.status
+        });
+      });
+      
+      // Handle completion
+      eventSource.addEventListener('complete', (e) => {
+        const data = JSON.parse(e.data);
+        completeDemo({
+          workUnitsCompleted: data.summary.paymentsCompleted,
+          totalPaidXRP: data.summary.totalSentRaw,
+          duration: data.summary.duration,
+          totalFees: data.summary.totalFees
+        });
+      });
+      
+      // Handle errors
+      eventSource.addEventListener('error', (e) => {
+        try {
+          const data = JSON.parse(e.data);
+          addLog(`Error: ${data.message}`, 'error');
+        } catch {
+          addLog('Connection error', 'error');
+        }
+        resetDemo();
+      });
+      
+      eventSource.onerror = () => {
+        if (isRunning) {
+          addLog('Connection lost', 'error');
+          resetDemo();
+        }
+      };
     }
 
     // Complete demo

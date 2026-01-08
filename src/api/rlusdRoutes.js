@@ -544,4 +544,379 @@ router.get("/streams/active", (req, res) => {
   });
 });
 
+// ═══════════════════════════════════════════════════════════════════════════
+// SSE DEMO ENDPOINT - Real-time RLUSD Streaming Demo
+// This is mounted separately BEFORE auth middleware for public access
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Create a separate router for the demo endpoint (to be mounted without auth)
+const rlusdDemoRouter = express.Router();
+
+/**
+ * Helper to send SSE event
+ */
+function sendSSE(res, event, data) {
+  res.write(`event: ${event}\n`);
+  res.write(`data: ${JSON.stringify(data)}\n\n`);
+}
+
+/**
+ * Sleep helper
+ */
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * GET /start (mounted at /api/rlusd/demo)
+ * Start the RLUSD streaming demo with SSE for real-time updates
+ * 
+ * Query params:
+ *   totalAmount: string (default: "5.00")
+ *   duration: number in seconds (default: 60)
+ *   intervalSeconds: number (default: 10)
+ */
+rlusdDemoRouter.get("/start", async (req, res) => {
+  // Set up SSE headers
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no");
+  res.flushHeaders();
+
+  const sessionId = `rlusd-demo-${Date.now()}`;
+
+  // Parse configuration from query params
+  const totalAmount = req.query.totalAmount || "5.00";
+  const duration = parseInt(req.query.duration) || 60;
+  const intervalSeconds = parseInt(req.query.intervalSeconds) || 10;
+
+  // Get wallet seeds from environment
+  const senderSeed = process.env.SENDER_WALLET_SEED;
+  const receiverSeed = process.env.RECEIVER_WALLET_SEED;
+
+  if (!senderSeed || !receiverSeed) {
+    sendSSE(res, "error", {
+      message:
+        "Missing wallet seeds in .env (SENDER_WALLET_SEED, RECEIVER_WALLET_SEED)",
+    });
+    res.end();
+    return;
+  }
+
+  // Initialize demo state
+  const demoState = {
+    sessionId,
+    status: "running",
+    phase: "init",
+    sessionKey: null,
+    senderAddress: null,
+    receiverAddress: null,
+    totalAmount: parseFloat(totalAmount),
+    paymentAmount: 0,
+    paymentCount: 0,
+    paymentsCompleted: 0,
+    totalSent: 0,
+    totalFees: 0,
+    transactions: [],
+    startTime: Date.now(),
+  };
+
+  // Handle client disconnect
+  let cancelled = false;
+  req.on("close", () => {
+    cancelled = true;
+    demoState.status = "cancelled";
+  });
+
+  try {
+    // ═══════════════════════════════════════════════════════════════════════
+    // PHASE 1: INITIALIZATION
+    // ═══════════════════════════════════════════════════════════════════════
+
+    sendSSE(res, "phase", { phase: "init", message: "Initializing RLUSD stream..." });
+
+    const senderWallet = xrpl.Wallet.fromSeed(senderSeed);
+    const receiverWallet = xrpl.Wallet.fromSeed(receiverSeed);
+
+    demoState.senderAddress = senderWallet.address;
+    demoState.receiverAddress = receiverWallet.address;
+
+    // Calculate streaming parameters
+    const paymentCount = Math.floor(duration / intervalSeconds);
+    const paymentAmount = (parseFloat(totalAmount) / paymentCount).toFixed(2);
+
+    demoState.paymentCount = paymentCount;
+    demoState.paymentAmount = parseFloat(paymentAmount);
+
+    sendSSE(res, "init", {
+      sender: {
+        address: senderWallet.address,
+        role: "Client (Sender)",
+      },
+      receiver: {
+        address: receiverWallet.address,
+        role: "Provider (Receiver)",
+      },
+      config: {
+        totalAmount: formatRLUSD(totalAmount),
+        duration: duration,
+        intervalSeconds: intervalSeconds,
+        paymentCount: paymentCount,
+        paymentAmount: formatRLUSD(paymentAmount),
+        ratePerSecond: `$${(parseFloat(paymentAmount) / intervalSeconds).toFixed(4)}`,
+      },
+    });
+
+    await sleep(500);
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // PHASE 2: CHECK RLUSD BALANCE
+    // ═══════════════════════════════════════════════════════════════════════
+
+    sendSSE(res, "phase", { phase: "balance_check", message: "Checking RLUSD balance..." });
+
+    const client = new xrpl.Client("wss://s.altnet.rippletest.net:51233");
+    await client.connect();
+
+    const senderLines = await client.request({
+      command: "account_lines",
+      account: senderWallet.address,
+      ledger_index: "validated",
+    });
+
+    const rlusdBalance = senderLines.result.lines.find(
+      (line) => line.currency === "USD" || line.currency.includes("USD")
+    );
+
+    if (!rlusdBalance) {
+      sendSSE(res, "error", {
+        message: "No RLUSD trustline found! Run: node test-scripts/get-rlusd.js first",
+      });
+      await client.disconnect();
+      res.end();
+      return;
+    }
+
+    const balance = parseFloat(rlusdBalance.balance);
+    if (balance < parseFloat(totalAmount)) {
+      sendSSE(res, "error", {
+        message: `Insufficient RLUSD balance: ${formatRLUSD(balance)} < ${formatRLUSD(totalAmount)}`,
+      });
+      await client.disconnect();
+      res.end();
+      return;
+    }
+
+    sendSSE(res, "balance_checked", {
+      balance: formatRLUSD(rlusdBalance.balance),
+      issuer: rlusdBalance.account,
+      sufficient: true,
+    });
+
+    await client.disconnect();
+    await sleep(300);
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // PHASE 3: CREATE SESSION
+    // ═══════════════════════════════════════════════════════════════════════
+
+    demoState.phase = "session";
+    sendSSE(res, "phase", { phase: "session", message: "Creating RLUSD stream session..." });
+
+    const sessionKey = `${senderWallet.address}-${receiverWallet.address}`;
+    demoState.sessionKey = sessionKey;
+
+    // Check if session already exists and clean it up
+    if (activeRLUSDSessions.has(sessionKey)) {
+      activeRLUSDSessions.delete(sessionKey);
+    }
+
+    const streamConfig = await createDirectRLUSDStream(
+      senderWallet,
+      receiverWallet.address,
+      totalAmount,
+      paymentCount
+    );
+
+    // Store session
+    activeRLUSDSessions.set(sessionKey, {
+      senderWallet,
+      receiverAddress: receiverWallet.address,
+      totalAmount: parseFloat(totalAmount),
+      paymentAmount: parseFloat(paymentAmount),
+      paymentCount,
+      paymentsCompleted: 0,
+      intervalSeconds,
+      startTime: Date.now(),
+      config: streamConfig,
+      isPaused: false,
+      payments: [],
+    });
+
+    sendSSE(res, "session_created", {
+      sessionKey,
+      senderAddress: senderWallet.address,
+      receiverAddress: receiverWallet.address,
+      totalAmount: formatRLUSD(totalAmount),
+      paymentAmount: formatRLUSD(paymentAmount),
+      paymentCount,
+      intervalSeconds,
+    });
+
+    await sleep(300);
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // PHASE 4: STREAMING PAYMENTS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    demoState.phase = "streaming";
+    sendSSE(res, "phase", { phase: "streaming", message: "Starting payment stream..." });
+
+    const rateInfo = calculateRLUSDStreamingRate(parseFloat(totalAmount), duration);
+
+    sendSSE(res, "stream_started", {
+      active: true,
+      rate: rateInfo.formatted.perSecond,
+      ratePerMinute: rateInfo.formatted.perMinute,
+    });
+
+    // Execute payments
+    for (let i = 1; i <= paymentCount; i++) {
+      if (cancelled) break;
+
+      const session = activeRLUSDSessions.get(sessionKey);
+      if (!session) break;
+
+      // Update progress before payment
+      const progress = ((i - 1) / paymentCount) * 100;
+      sendSSE(res, "payment_pending", {
+        paymentNumber: i,
+        totalPayments: paymentCount,
+        progress: Math.round(progress),
+        message: `Executing payment ${i}/${paymentCount}...`,
+      });
+
+      // Execute the actual payment
+      const paymentResult = await executeRLUSDPayment(
+        senderWallet,
+        receiverWallet.address,
+        paymentAmount
+      );
+
+      if (paymentResult.success) {
+        session.paymentsCompleted++;
+        demoState.paymentsCompleted = i;
+        demoState.totalSent += parseFloat(paymentAmount);
+        demoState.totalFees += 0.00001; // Approximate fee per tx
+
+        // Track payment
+        const paymentRecord = {
+          paymentNumber: i,
+          amount: paymentAmount,
+          transactionHash: paymentResult.transactionHash,
+          timestamp: Date.now(),
+        };
+        session.payments.push(paymentRecord);
+        demoState.transactions.push(paymentRecord);
+
+        const currentProgress = (i / paymentCount) * 100;
+
+        sendSSE(res, "payment", {
+          paymentNumber: i,
+          totalPayments: paymentCount,
+          amount: formatRLUSD(paymentAmount),
+          transactionHash: paymentResult.transactionHash,
+          totalSent: formatRLUSD(demoState.totalSent.toFixed(2)),
+          progress: Math.round(currentProgress),
+          fee: "0.00001 XRP",
+          totalFees: demoState.totalFees.toFixed(6) + " XRP",
+        });
+
+        // Add transaction event
+        sendSSE(res, "transaction", {
+          type: "payment",
+          timestamp: Date.now(),
+          from: senderWallet.address,
+          to: receiverWallet.address,
+          amount: formatRLUSD(paymentAmount),
+          txHash: paymentResult.transactionHash,
+          status: "Success",
+        });
+
+        // Wait for next interval (unless it's the last payment)
+        if (i < paymentCount && !cancelled) {
+          // Show countdown
+          for (let sec = intervalSeconds; sec > 0 && !cancelled; sec--) {
+            sendSSE(res, "countdown", {
+              nextPaymentIn: sec,
+              paymentNumber: i + 1,
+            });
+            await sleep(1000);
+          }
+        }
+      } else {
+        sendSSE(res, "payment_error", {
+          paymentNumber: i,
+          error: paymentResult.error,
+        });
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // PHASE 5: COMPLETE
+    // ═══════════════════════════════════════════════════════════════════════
+
+    demoState.phase = "complete";
+    demoState.status = "completed";
+
+    // Clean up session
+    activeRLUSDSessions.delete(sessionKey);
+
+    // Save to history
+    paymentHistory.set(sessionKey, {
+      senderWallet,
+      receiverAddress: receiverWallet.address,
+      totalAmount: parseFloat(totalAmount),
+      paymentsCompleted: demoState.paymentsCompleted,
+      totalSent: demoState.totalSent,
+      completedAt: Date.now(),
+      transactions: demoState.transactions,
+    });
+
+    const durationMs = Date.now() - demoState.startTime;
+
+    sendSSE(res, "complete", {
+      success: true,
+      summary: {
+        sessionKey,
+        duration: Math.round(durationMs / 1000),
+        paymentsCompleted: demoState.paymentsCompleted,
+        totalPayments: paymentCount,
+        totalSent: formatRLUSD(demoState.totalSent.toFixed(2)),
+        totalSentRaw: demoState.totalSent.toFixed(2),
+        totalFees: demoState.totalFees.toFixed(6) + " XRP",
+        transactions: demoState.transactions.length,
+        averagePaymentTime: Math.round(durationMs / demoState.paymentsCompleted / 1000),
+      },
+    });
+
+    console.log(`✓ RLUSD demo completed: ${sessionKey}`);
+
+  } catch (error) {
+    console.error("RLUSD Demo Error:", error);
+    sendSSE(res, "error", {
+      message: error.message,
+      phase: demoState.phase,
+    });
+
+    // Cleanup on error
+    if (demoState.sessionKey) {
+      activeRLUSDSessions.delete(demoState.sessionKey);
+    }
+  } finally {
+    res.end();
+  }
+});
+
+// Export both routers
 module.exports = router;
+module.exports.rlusdDemoRouter = rlusdDemoRouter;
