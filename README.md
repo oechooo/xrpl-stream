@@ -1,40 +1,52 @@
 # XRPL Streaming Payments
 
-A general-purpose streaming payment system built on the XRP Ledger (XRPL) using payment channels. This system enables real-time, off-chain micro-payments with zero transaction fees until finalization.
+A general-purpose streaming payment system built on the XRP Ledger (XRPL). Supports both **XRP Payment Channels** (off-chain streaming) and **RLUSD Direct Payments** (on-chain stablecoin streaming).
 
 ## 🌟 Features
 
-- **Zero-Fee Streaming**: Off-chain payment streams with no transaction fees
-- **Real-Time Payments**: Micropayments per second using cryptographic signatures
-- **Secure**: Built on XRPL's payment channel technology
-- **Auto-Reconnect**: Resilient connection management with automatic reconnection
+- **Zero-Fee XRP Streaming**: Off-chain payment streams with no transaction fees until finalization
+- **RLUSD Stablecoin Support**: Direct on-chain USD-pegged payments
+- **Machine-to-Machine (M2M) Payments**: Automated, trustless transactions between autonomous agents
+- **Cryptographic Verification**: SHA256 proof-of-work verification before payments
+- **Real-Time UI**: Live visualization of streaming payments
 - **RESTful API**: Easy-to-use HTTP endpoints for integration
-- **Flexible Rates**: Configurable payment rates and streaming durations
-- **Local State Management**: Track channel state with built-in storage
+- **Service Contracts**: Define services, pricing, and terms for M2M interactions
 
 ## 📁 Project Structure
 
 ```
-xrpl-streaming-payments/
-├── contracts/              # On-chain XRPL transaction management
-│   ├── createChannel.js   # Create payment channels
-│   ├── fundChannel.js     # Add funds to existing channels
-│   └── claimChannel.js    # Finalize and close channels
+xrpl-stream/
+├── contracts/                    # On-chain XRPL transaction management
+│   ├── createChannel.js          # Create XRP payment channels
+│   ├── fundChannel.js            # Add funds to existing channels
+│   ├── claimChannel.js           # Finalize and close channels
+│   └── createRLUSDStream.js      # RLUSD direct payment streaming
 ├── src/
-│   ├── core/              # Streaming engine
-│   │   ├── signer.js      # Off-chain claim signing (sender)
-│   │   ├── validator.js   # Claim validation (receiver)
-│   │   └── channelStore.js # Local state management
+│   ├── core/                     # Streaming engine
+│   │   ├── signer.js             # Off-chain claim signing (sender)
+│   │   ├── validator.js          # Claim validation (receiver)
+│   │   ├── channelStore.js       # Local state management
+│   │   └── contract.js           # Service contracts for M2M
 │   ├── api/
-│   │   ├── streamRoutes.js # API endpoints
-│   │   └── middleware.js   # Auth and validation
+│   │   ├── streamRoutes.js       # XRP streaming API endpoints
+│   │   ├── rlusdRoutes.js        # RLUSD streaming API endpoints
+│   │   ├── m2mDemoRoutes.js      # M2M demo SSE endpoint
+│   │   └── middleware.js         # Auth and validation
 │   └── utils/
-│       ├── xrplClient.js   # XRPL connection manager
-│       └── converters.js   # XRP/drops conversion utilities
-├── public/                 # Frontend assets
-├── config.js              # Configuration constants
-├── server.js              # Application entry point
-└── package.json           # Dependencies
+│       ├── xrplClient.js         # XRPL connection manager
+│       └── converters.js         # XRP/drops & USD/cents utilities
+├── public/                       # Frontend assets
+│   ├── index.html                # Landing page
+│   ├── streaming-demo.html       # Main demo UI (XRP + RLUSD)
+│   └── m2m-demo.html             # Legacy M2M demo (XRP only)
+├── test-scripts/                 # Test and demo scripts
+│   ├── 6-m2m-streaming-demo.js   # M2M streaming demo (CLI)
+│   ├── full-rlusd-streaming-test.js  # RLUSD API test
+│   ├── logic-only-tests.js       # Unit tests (no network)
+│   └── ...                       # Other test scripts
+├── config.js                     # Configuration constants
+├── server.js                     # Application entry point
+└── package.json                  # Dependencies
 ```
 
 ## 🚀 Quick Start
@@ -46,215 +58,180 @@ xrpl-streaming-payments/
 
 ### Installation
 
-1. Clone the repository:
+1. **Clone and install:**
 ```bash
 git clone <your-repo-url>
-cd xrpl-streaming-payments
-```
-
-2. Install dependencies:
-```bash
+cd xrpl-stream
 npm install
 ```
 
-3. Configure environment variables:
+2. **Set up environment variables:**
+
+Create a `.env` file in the root directory:
 ```bash
-cp .env.example .env
+# Network Configuration
+XRPL_NETWORK=testnet
+
+# API Configuration
+PORT=3000
+API_KEY=your-secret-api-key
+
+# Wallet Seeds (TESTNET ONLY - Never use real seeds!)
+SENDER_SECRET=sXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+RECEIVER_SECRET=sYYYYYYYYYYYYYYYYYYYYYYYYYYYYY
 ```
 
-Edit `.env` and configure:
-- `XRPL_NETWORK`: Choose `testnet` (default), `devnet`, or `mainnet`
-- `API_KEY`: Set a secure API key for authentication
-- `PORT`: API server port (default: 3000)
+3. **Get Testnet Wallets:**
 
-4. Get test credentials:
-   - Visit [XRPL Testnet Faucet](https://xrpl.org/xrp-testnet-faucet.html)
-   - Generate sender and receiver wallets
-   - Save the seeds in `.env` (for testing only!)
+   **Option A: XRPL Faucet (Recommended)**
+   1. Go to [XRPL Testnet Faucet](https://xrpl.org/resources/dev-tools/xrp-faucets)
+   2. Click **"Generate Testnet credentials"**
+   3. Copy the **Secret** (starts with `s...`) - this is your wallet seed
+   4. Repeat to get a second wallet
+   5. Paste the first secret as `SENDER_SECRET` and the second as `RECEIVER_SECRET` in your `.env`
+
+   **Option B: Programmatically**
+   ```javascript
+   const xrpl = require('xrpl');
+   const client = new xrpl.Client('wss://s.altnet.rippletest.net:51233');
+   await client.connect();
+   
+   // Generate and fund wallet
+   const { wallet } = await client.fundWallet();
+   console.log('Address:', wallet.address);
+   console.log('Secret:', wallet.seed);  // Use this in .env
+   ```
+
+   > ⚠️ **Important**: Never commit real wallet seeds to version control. Testnet seeds are safe for testing only.
 
 ### Running the Server
 
-Development mode (with auto-reload):
-```bash
-npm run dev
-```
-
-Production mode:
+**Start the server:**
 ```bash
 npm start
 ```
 
-The API will be available at `http://localhost:3000`
-
-## 📖 Usage Guide
-
-### 1. Create a Payment Channel
-
-First, create a payment channel on the XRPL:
-
-```javascript
-const { createChannel } = require('./contracts/createChannel');
-const xrpl = require('xrpl');
-
-const senderWallet = xrpl.Wallet.fromSeed('sYourSenderSeed');
-const destinationAddress = 'rReceiverAddress';
-const amount = '100000000'; // 100 XRP in drops
-
-const result = await createChannel(
-  senderWallet,
-  destinationAddress,
-  amount,
-  3600 // settle delay in seconds
-);
-
-console.log('Channel ID:', result.channelId);
-```
-
-### 2. Start a Streaming Session
-
-**Sender side:**
+**Development mode (with auto-reload):**
 ```bash
-curl -X POST http://localhost:3000/api/stream/start \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer your-api-key" \
-  -d '{
-    "channelId": "YOUR_CHANNEL_ID",
-    "walletSeed": "sYourSenderSeed",
-    "ratePerSecond": "1000",
-    "role": "sender"
-  }'
+npm run dev
 ```
 
-**Receiver side:**
-```bash
-curl -X POST http://localhost:3000/api/stream/start \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer your-api-key" \
-  -d '{
-    "channelId": "YOUR_CHANNEL_ID",
-    "publicKey": "SENDER_PUBLIC_KEY",
-    "role": "receiver"
-  }'
+The server will start at `http://localhost:3000`
+
+### Open the Demo UI
+
+After starting the server, open your browser to:
+```
+http://localhost:3000
 ```
 
-### 3. Generate and Validate Claims
-
-**Sender generates a claim:**
-```bash
-curl -X GET "http://localhost:3000/api/stream/claim?channelId=YOUR_CHANNEL_ID" \
-  -H "Authorization: Bearer your-api-key"
+This will show the landing page with a link to the **Streaming Demo**, or go directly to:
+```
+http://localhost:3000/streaming-demo.html
 ```
 
-**Receiver validates the claim:**
-```bash
-curl -X POST http://localhost:3000/api/stream/validate \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer your-api-key" \
-  -d '{
-    "channelId": "YOUR_CHANNEL_ID",
-    "amount": "5000",
-    "signature": "SIGNATURE_FROM_SENDER",
-    "publicKey": "SENDER_PUBLIC_KEY"
-  }'
-```
+## 🎮 Demo Modes
 
-### 4. Finalize on Chain
+### XRP Mode (Payment Channels)
+- **Mechanism**: Off-chain streaming with on-chain finalization
+- **Fees**: Zero fees during streaming, small fee only at finalization
+- **Best for**: High-frequency micro-payments, M2M automation
+- **Features**: Cryptographic verification, service contracts
 
-When ready to claim the XRP on-chain:
-
-```bash
-curl -X POST http://localhost:3000/api/stream/finalize \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer your-api-key" \
-  -d '{
-    "channelId": "YOUR_CHANNEL_ID",
-    "receiverWalletSeed": "sYourReceiverSeed"
-  }'
-```
+### RLUSD Mode (Direct Payments)
+- **Mechanism**: On-chain Payment transactions at intervals
+- **Fees**: ~0.00001 XRP per payment
+- **Best for**: Stable-value payments, commercial settlements
+- **Requires**: Trustline to RLUSD issuer on both wallets
 
 ## 🔌 API Endpoints
 
-### Stream Management
+### XRP Payment Channels (`/api/stream`)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/stream/start` | Start streaming session |
+| POST | `/api/stream/stop` | Stop streaming session |
+| GET | `/api/stream/claim` | Generate signed claim (sender) |
+| POST | `/api/stream/validate` | Validate claim (receiver) |
+| POST | `/api/stream/finalize` | Finalize claim on-chain |
+| GET | `/api/stream/status` | Get channel status |
+| GET | `/api/stream/history` | Get claim history |
 
-- `POST /api/stream/start` - Start streaming session
-- `POST /api/stream/stop` - Stop streaming session
-- `GET /api/stream/claim` - Generate signed claim (sender)
-- `POST /api/stream/validate` - Validate claim (receiver)
-- `POST /api/stream/finalize` - Finalize claim on-chain
-- `GET /api/stream/status` - Get channel status
-- `GET /api/stream/history` - Get claim history
+### RLUSD Streaming (`/api/rlusd`)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/rlusd/stream/start` | Start RLUSD stream session |
+| POST | `/api/rlusd/stream/payment` | Execute single payment |
+| GET | `/api/rlusd/stream/status/:key` | Get session status |
+| POST | `/api/rlusd/stream/stop` | Stop RLUSD stream |
+| GET | `/api/rlusd/streams/active` | List active sessions |
+
+### M2M Demo (`/api/m2m`)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/m2m/start` | Start M2M demo (SSE stream) |
 
 ### System
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/health` | Health check |
+| GET | `/api` | API documentation |
 
-- `GET /health` - Health check
-- `GET /` - API documentation
+## 🧪 Test Scripts
+
+Run individual test scripts:
+```bash
+# Verify wallet setup
+node test-scripts/0-verify-wallets.js
+
+# Create a payment channel
+node test-scripts/1-create-channel.js
+
+# Run M2M streaming demo (CLI)
+node test-scripts/6-m2m-streaming-demo.js
+
+# Run logic-only tests (no network required)
+node test-scripts/logic-only-tests.js
+```
 
 ## 🔧 Configuration
 
-Key configuration options in `config.js`:
+Key options in `config.js`:
 
 ```javascript
 {
   channel: {
-    DEFAULT_SETTLE_DELAY: 3600, // 1 hour
-    MIN_CHANNEL_AMOUNT: '1000000', // 1 XRP
+    DEFAULT_SETTLE_DELAY: 3600,     // 1 hour
+    MIN_CHANNEL_AMOUNT: '1000000',  // 1 XRP minimum
   },
   streaming: {
     DEFAULT_RATE_PER_SECOND: '1000', // 0.001 XRP/sec
     MAX_CLAIMS_PER_MINUTE: 60,
   },
-  finalization: {
-    minAmountToFinalize: '100000000', // 100 XRP
-    maxTimeSinceLastFinalization: 3600000, // 1 hour
+  xrp: {
+    symbol: 'XRP',
+    decimals: 6,
+  },
+  currency: {
+    currency: 'USD',
+    issuer: 'rMxCVaJYp6WDH2mBPk5zLGwxr1g2Ur1qWn', // RLUSD issuer
+    symbol: 'RLUSD',
+    decimals: 2,
   }
 }
 ```
 
-## 🧪 Use Cases
-
-1. **Video Streaming**: Pay per second of video content
-2. **API Metering**: Pay for API calls in real-time
-3. **IoT Micropayments**: Device-to-device micropayments
-4. **Gaming**: In-game currency streaming
-5. **Content Monetization**: Real-time payments for content consumption
-
-## 🔐 Security Best Practices
-
-1. **Never commit wallet seeds** to version control
-2. **Use environment variables** for sensitive data
-3. **Enable API key authentication** in production
-4. **Use HTTPS** in production environments
-5. **Implement rate limiting** to prevent abuse
-6. **Regular channel monitoring** and finalization
-
-## 📝 Development
-
-Run tests:
-```bash
-npm test
-```
-
-Lint code:
-```bash
-npm run lint
-```
-
-## 🌐 XRPL Resources
+## 🌐 Resources
 
 - [XRPL Documentation](https://xrpl.org/)
 - [Payment Channels Tutorial](https://xrpl.org/use-payment-channels.html)
-- [XRPL Testnet Faucet](https://xrpl.org/xrp-testnet-faucet.html)
+- [XRPL Testnet Faucet](https://xrpl.org/resources/dev-tools/xrp-faucets)
 - [xrpl.js Library](https://js.xrpl.org/)
 
 ## 📄 License
 
 MIT
 
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
 ## ⚠️ Disclaimer
 
 This software is provided as-is for educational and development purposes. Always test thoroughly on testnet before deploying to mainnet. The authors are not responsible for any loss of funds.
-

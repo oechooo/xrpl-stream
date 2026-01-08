@@ -163,15 +163,12 @@ async function startServer() {
       console.log(`  Get History: GET /api/stream/history?channelId=<id>`);
       console.log("\n" + "=".repeat(50));
 
-      console.log("\nRLUSD Streaming Demo:");
-      console.log(
-        `  Demo UI: http://localhost:${config.server.port}/streaming-demo.html`
-      );
-      console.log(
-        `  M2M Demo: http://localhost:${config.server.port}/m2m-demo.html`
-      );
-      console.log("\n" + "=".repeat(50));
-
+      console.log('\nDemo UI:');
+      console.log(`  Main Demo: http://localhost:${config.server.port}/streaming-demo.html`);
+      console.log(`  Legacy M2M: http://localhost:${config.server.port}/m2m-demo.html`);
+      console.log(`  M2M API (SSE): GET /api/m2m/start`);
+      console.log('\n' + '='.repeat(50));
+      
       if (!config.security.enableApiKeyAuth) {
         console.warn("\n⚠️  Warning: API key authentication is disabled!");
         console.warn("Set API_KEY in .env to enable authentication.\n");
