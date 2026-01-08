@@ -1,5 +1,8 @@
 /**
- * Get RLUSD for testing by trading XRP → RLUSD on XRPL DEX
+ * Get RLUSD for testing by obtaining tokens from your own issuer
+ *
+ * PREREQUISITE: First run setup-issuer.js to create an issuer account,
+ * then add RLUSD_ISSUER and RLUSD_ISSUER_SEED to your .env file.
  */
 const xrpl = require("xrpl");
 require("dotenv").config();
@@ -11,26 +14,44 @@ async function getRLUSDForTesting() {
   await client.connect();
 
   const senderSeed = process.env.SENDER_WALLET_SEED;
+  const RLUSD_ISSUER = process.env.RLUSD_ISSUER;
+  const RLUSD_ISSUER_SEED = process.env.RLUSD_ISSUER_SEED;
 
   if (!senderSeed) {
     console.error("❌ Error: Missing SENDER_WALLET_SEED in .env");
     process.exit(1);
   }
 
+  if (!RLUSD_ISSUER || !RLUSD_ISSUER_SEED) {
+    console.error(
+      "❌ Error: Missing RLUSD_ISSUER or RLUSD_ISSUER_SEED in .env"
+    );
+    console.error("\n📝 To set up an RLUSD issuer:");
+    console.error("   1. Run: node test-scripts/setup-issuer.js");
+    console.error(
+      "   2. Copy the RLUSD_ISSUER and RLUSD_ISSUER_SEED to your .env file"
+    );
+    console.error("   3. Then run this script again\n");
+    process.exit(1);
+  }
+
   const senderWallet = xrpl.Wallet.fromSeed(senderSeed);
+  const issuerWallet = xrpl.Wallet.fromSeed(RLUSD_ISSUER_SEED);
+
   console.log(`Sender Address: ${senderWallet.address}`);
+  console.log(`Issuer Address: ${issuerWallet.address}`);
 
   try {
-    // First, let's set up a trust line for RLUSD
-    console.log("\n1️⃣ Setting up RLUSD trust line...");
+    // First, set up a trust line for RLUSD from sender
+    console.log("\n1️⃣ Setting up RLUSD trust line for sender...");
 
     const trustLineTx = {
       TransactionType: "TrustSet",
       Account: senderWallet.address,
       LimitAmount: {
         currency: "USD",
-        issuer: "rMxCVaJYp6WDH2mBPk5zLGwxr1g2Ur1qWn", // Ripple's RLUSD issuer
-        value: "1000", // Trust limit: 1000 RLUSD
+        issuer: RLUSD_ISSUER,
+        value: "10000", // Trust limit: 10000 RLUSD
       },
     };
 
@@ -40,100 +61,127 @@ async function getRLUSDForTesting() {
 
     if (result.result.meta.TransactionResult === "tesSUCCESS") {
       console.log("✅ Trust line created successfully!");
+    } else if (result.result.meta.TransactionResult === "tecDUPLICATE") {
+      console.log("✅ Trust line already exists!");
     } else {
       console.log(
         `⚠️  Trust line result: ${result.result.meta.TransactionResult}`
       );
     }
 
-    // Now try to get RLUSD
-    console.log("\n2️⃣ Attempting to acquire RLUSD...");
-    console.log("🔍 Looking for RLUSD offers on DEX...");
+    // Now issue RLUSD from the issuer to the sender
+    console.log("\n2️⃣ Issuing RLUSD from issuer to sender...");
 
-    // Check order book
-    const orderBook = await client.request({
-      command: "book_offers",
-      taker_gets: {
-        currency: "USD",
-        issuer: "rMxCVaJYp6WDH2mBPk5zLGwxr1g2Ur1qWn",
-      },
-      taker_pays: "XRP",
-      limit: 10,
-    });
-
-    console.log(`Found ${orderBook.result.offers.length} RLUSD offers`);
-
-    if (orderBook.result.offers.length === 0) {
-      console.log("\n❌ No RLUSD offers available on DEX");
-      console.log("🛠️  Alternative options:");
-      console.log("  1. Check if Ripple has a testnet RLUSD faucet");
-      console.log("  2. Try different RLUSD issuers");
-      console.log("  3. Test with XRP streaming instead");
-      console.log("  4. Create mock RLUSD for testing");
-
-      // Let's try creating a mock RLUSD for testing
-      console.log("\n3️⃣ Creating mock RLUSD for testing...");
-      await createMockRLUSD(client, senderWallet);
-    } else {
-      console.log(
-        "\n✅ RLUSD offers found! You can manually trade XRP for RLUSD."
-      );
-      orderBook.result.offers.slice(0, 3).forEach((offer, i) => {
-        console.log(
-          `  ${i + 1}. ${offer.TakerGets.value} RLUSD for ${xrpl.dropsToXrp(
-            offer.TakerPays
-          )} XRP`
-        );
-      });
-    }
-  } catch (error) {
-    console.error("❌ Error:", error.message);
-  } finally {
-    await client.disconnect();
-  }
-}
-
-async function createMockRLUSD(client, wallet) {
-  try {
-    // Create a Payment transaction to ourselves to establish RLUSD balance
-    // This works if we are the issuer or if there's an existing RLUSD gateway
-
-    console.log("Creating mock RLUSD transaction...");
-
-    // Note: This will only work if you're connected to the RLUSD issuer
-    // For real testing, you need actual RLUSD from an issuer or DEX
-
-    const mockPayment = {
+    const paymentTx = {
       TransactionType: "Payment",
-      Account: wallet.address,
-      Destination: wallet.address,
+      Account: issuerWallet.address,
+      Destination: senderWallet.address,
       Amount: {
         currency: "USD",
-        issuer: "rMxCVaJYp6WDH2mBPk5zLGwxr1g2Ur1qWn",
-        value: "100",
+        issuer: RLUSD_ISSUER,
+        value: "1000", // Issue 1000 RLUSD
       },
     };
 
-    const prepared = await client.autofill(mockPayment);
-    const signed = wallet.sign(prepared);
-    const result = await client.submitAndWait(signed.tx_blob);
+    const preparedPayment = await client.autofill(paymentTx);
+    const signedPayment = issuerWallet.sign(preparedPayment);
+    const paymentResult = await client.submitAndWait(signedPayment.tx_blob);
 
-    console.log(
-      `Mock transaction result: ${result.result.meta.TransactionResult}`
-    );
-
-    if (result.result.meta.TransactionResult !== "tesSUCCESS") {
-      console.log("❌ Mock RLUSD creation failed");
-      console.log("💡 You need real RLUSD from the issuer or DEX");
+    if (paymentResult.result.meta.TransactionResult === "tesSUCCESS") {
+      console.log("✅ Successfully issued 1000 RLUSD to sender!");
+    } else {
+      console.log(
+        `❌ Payment failed: ${paymentResult.result.meta.TransactionResult}`
+      );
     }
+
+    // Check balances
+    console.log("\n3️⃣ Checking RLUSD balances...");
+
+    const balances = await client.request({
+      command: "account_lines",
+      account: senderWallet.address,
+      peer: RLUSD_ISSUER,
+    });
+
+    if (balances.result.lines.length > 0) {
+      const rlusdLine = balances.result.lines.find((l) => l.currency === "USD");
+      if (rlusdLine) {
+        console.log(`✅ Sender RLUSD balance: ${rlusdLine.balance} USD`);
+      }
+    } else {
+      console.log("No RLUSD balance found");
+    }
+
+    // Also set up trust line for receiver if RECEIVER_WALLET_SEED exists
+    const receiverSeed = process.env.RECEIVER_WALLET_SEED;
+    if (receiverSeed) {
+      console.log("\n4️⃣ Setting up RLUSD for receiver wallet...");
+
+      const receiverWallet = xrpl.Wallet.fromSeed(receiverSeed);
+      console.log(`Receiver Address: ${receiverWallet.address}`);
+
+      // Trust line for receiver
+      const receiverTrustTx = {
+        TransactionType: "TrustSet",
+        Account: receiverWallet.address,
+        LimitAmount: {
+          currency: "USD",
+          issuer: RLUSD_ISSUER,
+          value: "10000",
+        },
+      };
+
+      const preparedReceiverTrust = await client.autofill(receiverTrustTx);
+      const signedReceiverTrust = receiverWallet.sign(preparedReceiverTrust);
+      const receiverTrustResult = await client.submitAndWait(
+        signedReceiverTrust.tx_blob
+      );
+
+      if (
+        receiverTrustResult.result.meta.TransactionResult === "tesSUCCESS" ||
+        receiverTrustResult.result.meta.TransactionResult === "tecDUPLICATE"
+      ) {
+        console.log("✅ Receiver trust line ready!");
+      }
+
+      // Issue some RLUSD to receiver too
+      const receiverPaymentTx = {
+        TransactionType: "Payment",
+        Account: issuerWallet.address,
+        Destination: receiverWallet.address,
+        Amount: {
+          currency: "USD",
+          issuer: RLUSD_ISSUER,
+          value: "100",
+        },
+      };
+
+      const preparedReceiverPayment = await client.autofill(receiverPaymentTx);
+      const signedReceiverPayment = issuerWallet.sign(preparedReceiverPayment);
+      const receiverPaymentResult = await client.submitAndWait(
+        signedReceiverPayment.tx_blob
+      );
+
+      if (
+        receiverPaymentResult.result.meta.TransactionResult === "tesSUCCESS"
+      ) {
+        console.log("✅ Issued 100 RLUSD to receiver!");
+      }
+    }
+
+    console.log("\n" + "=".repeat(50));
+    console.log("✅ RLUSD Setup Complete!");
+    console.log("=".repeat(50));
+    console.log("\nYou can now run RLUSD streaming tests:");
+    console.log("  node test-scripts/full-rlusd-streaming-test.js");
   } catch (error) {
-    console.log("❌ Mock RLUSD failed:", error.message);
-    console.log("\n🎯 FINAL RECOMMENDATION:");
-    console.log("  Test the XRP streaming first - it works without RLUSD");
-    console.log("  Run: node test-scripts/1-create-channel.js");
-    console.log(
-      "  (But first get more XRP from faucet - you need ~60 XRP total)"
-    );
+    console.error("❌ Error:", error.message);
+    if (error.data) {
+      console.error("   Details:", JSON.stringify(error.data, null, 2));
+    }
+  } finally {
+    await client.disconnect();
   }
 }
 

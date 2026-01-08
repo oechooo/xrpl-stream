@@ -30,7 +30,7 @@ module.exports = {
   currency: {
     // RLUSD currency definition
     currency: "USD",
-    issuer: "rMxCVaJYp6WDH2mBPk5zLGwxr1g2Ur1qWn", // Ripple RLUSD issuer address
+    issuer: process.env.RLUSD_ISSUER || "rwZFUkGLkLujcCWykEw7BGJGKNw8N6qYKN", // Custom testnet RLUSD issuer
 
     // Display formatting
     symbol: "RLUSD",

@@ -16,10 +16,45 @@ const {
 require("dotenv").config();
 
 const SERVER_URL = "http://localhost:3000";
+const API_KEY = process.env.API_KEY;
+
+if (!API_KEY) {
+  console.error("❌ API_KEY not found in .env file");
+  process.exit(1);
+}
+
+// Create axios instance with auth header
+const api = axios.create({
+  baseURL: SERVER_URL,
+  headers: {
+    Authorization: `Bearer ${API_KEY}`,
+    "Content-Type": "application/json",
+  },
+});
+
+// Check if server is running before starting tests
+async function checkServerHealth() {
+  try {
+    const response = await axios.get(`${SERVER_URL}/health`, { timeout: 3000 });
+    return response.status === 200;
+  } catch {
+    return false;
+  }
+}
 
 async function fullRLUSDStreamingTest() {
   console.log("🚀 COMPREHENSIVE RLUSD STREAMING TEST");
   console.log("=".repeat(60));
+
+  // Check server health first
+  const serverRunning = await checkServerHealth();
+  if (!serverRunning) {
+    console.error("❌ Server is not running at " + SERVER_URL);
+    console.error("💡 Start the server first: npm start");
+    console.error("   Then run this test in a separate terminal.\n");
+    process.exit(1);
+  }
+  console.log("✅ Server is running\n");
 
   const senderSeed = process.env.SENDER_WALLET_SEED;
   const receiverSeed = process.env.RECEIVER_WALLET_SEED;
@@ -98,8 +133,8 @@ async function fullRLUSDStreamingTest() {
       intervalSeconds,
     };
 
-    const streamResponse = await axios.post(
-      `${SERVER_URL}/api/rlusd/stream/start`,
+    const streamResponse = await api.post(
+      `/api/rlusd/stream/start`,
       streamStartData
     );
     sessionKey = streamResponse.data.sessionKey;
@@ -127,8 +162,8 @@ async function fullRLUSDStreamingTest() {
 
       // Execute payment via API
       const paymentData = { sessionKey };
-      const paymentResponse = await axios.post(
-        `${SERVER_URL}/api/rlusd/stream/execute`,
+      const paymentResponse = await api.post(
+        `/api/rlusd/stream/execute`,
         paymentData
       );
 
@@ -160,8 +195,8 @@ async function fullRLUSDStreamingTest() {
     // ===== STEP 5: GET SESSION STATUS =====
     console.log("📋 STEP 5: Checking session status...");
 
-    const statusResponse = await axios.get(
-      `${SERVER_URL}/api/rlusd/stream/status/${sessionKey}`
+    const statusResponse = await api.get(
+      `/api/rlusd/stream/status/${sessionKey}`
     );
     console.log(`✅ Session status retrieved:`);
     console.log(`   Active: ${statusResponse.data.active}`);
@@ -183,8 +218,8 @@ async function fullRLUSDStreamingTest() {
     // ===== STEP 6: GET PAYMENT HISTORY =====
     console.log("📚 STEP 6: Retrieving payment history...");
 
-    const historyResponse = await axios.get(
-      `${SERVER_URL}/api/rlusd/stream/history/${sessionKey}`
+    const historyResponse = await api.get(
+      `/api/rlusd/stream/history/${sessionKey}`
     );
     console.log(
       `✅ Payment history retrieved: ${historyResponse.data.payments.length} payments`
@@ -204,10 +239,7 @@ async function fullRLUSDStreamingTest() {
     console.log("⏸️  STEP 7: Pausing stream...");
 
     const pauseData = { sessionKey };
-    const pauseResponse = await axios.post(
-      `${SERVER_URL}/api/rlusd/stream/pause`,
-      pauseData
-    );
+    const pauseResponse = await api.post(`/api/rlusd/stream/pause`, pauseData);
     console.log(`✅ Stream paused: ${pauseResponse.data.message}`);
     console.log(
       `   Payments completed before pause: ${pauseResponse.data.paymentsCompleted}\n`
@@ -217,8 +249,8 @@ async function fullRLUSDStreamingTest() {
     console.log("▶️  STEP 8: Resuming stream...");
 
     const resumeData = { sessionKey };
-    const resumeResponse = await axios.post(
-      `${SERVER_URL}/api/rlusd/stream/resume`,
+    const resumeResponse = await api.post(
+      `/api/rlusd/stream/resume`,
       resumeData
     );
     console.log(`✅ Stream resumed: ${resumeResponse.data.message}`);
@@ -232,8 +264,8 @@ async function fullRLUSDStreamingTest() {
     // Execute 2 more payments
     for (let i = 0; i < 2; i++) {
       const paymentData = { sessionKey };
-      const paymentResponse = await axios.post(
-        `${SERVER_URL}/api/rlusd/stream/execute`,
+      const paymentResponse = await api.post(
+        `/api/rlusd/stream/execute`,
         paymentData
       );
 
@@ -256,10 +288,7 @@ async function fullRLUSDStreamingTest() {
     console.log("🛑 STEP 10: Stopping stream...");
 
     const stopData = { sessionKey };
-    const stopResponse = await axios.post(
-      `${SERVER_URL}/api/rlusd/stream/stop`,
-      stopData
-    );
+    const stopResponse = await api.post(`/api/rlusd/stream/stop`, stopData);
     console.log(`✅ Stream stopped: ${stopResponse.data.message}`);
     console.log(
       `   Total payments completed: ${stopResponse.data.paymentsCompleted}`
@@ -291,15 +320,22 @@ async function fullRLUSDStreamingTest() {
     );
   } catch (error) {
     console.error("❌ RLUSD Streaming test failed:", error.message);
-    if (error.response) {
+
+    // Show more details about the error
+    if (error.code === "ECONNREFUSED") {
+      console.error("\n⚠️  Cannot connect to server at " + SERVER_URL);
+      console.error("💡 Make sure the server is running: npm start");
+    } else if (error.response) {
       console.error("API Error:", error.response.data);
+    } else if (error.request) {
+      console.error("Network Error: No response received from server");
     }
 
     // Cleanup: try to stop stream if it was created
     if (sessionKey) {
       try {
         console.log("\n🧹 Attempting cleanup...");
-        await axios.post(`${SERVER_URL}/api/rlusd/stream/stop`, { sessionKey });
+        await api.post(`/api/rlusd/stream/stop`, { sessionKey });
         console.log("✅ Cleanup completed");
       } catch (cleanupError) {
         console.error("❌ Cleanup failed:", cleanupError.message);

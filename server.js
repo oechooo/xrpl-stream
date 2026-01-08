@@ -8,7 +8,7 @@ const config = require("./config");
 const { getClientManager } = require("./src/utils/xrplClient");
 const streamRoutes = require("./src/api/streamRoutes");
 const rlusdRoutes = require("./src/api/rlusdRoutes");
-const m2mDemoRoutes = require('./src/api/m2mDemoRoutes');
+const m2mDemoRoutes = require("./src/api/m2mDemoRoutes");
 const {
   configureCORS,
   createRateLimiter,
@@ -95,7 +95,7 @@ if (config.security.enableRateLimiting) {
 }
 
 // M2M Demo routes - mounted BEFORE auth middleware (public demo)
-app.use('/api/m2m', m2mDemoRoutes);
+app.use("/api/m2m", m2mDemoRoutes);
 
 // Authentication middleware (skip health checks)
 if (config.security.enableApiKeyAuth) {
@@ -163,11 +163,15 @@ async function startServer() {
       console.log(`  Get History: GET /api/stream/history?channelId=<id>`);
       console.log("\n" + "=".repeat(50));
 
-      console.log('\nM2M Demo:');
-      console.log(`  Demo UI: http://localhost:${config.server.port}/m2m-demo.html`);
-      console.log(`  Start Demo (SSE): GET /api/m2m/start`);
-      console.log('\n' + '='.repeat(50));
-      
+      console.log("\nRLUSD Streaming Demo:");
+      console.log(
+        `  Demo UI: http://localhost:${config.server.port}/streaming-demo.html`
+      );
+      console.log(
+        `  M2M Demo: http://localhost:${config.server.port}/m2m-demo.html`
+      );
+      console.log("\n" + "=".repeat(50));
+
       if (!config.security.enableApiKeyAuth) {
         console.warn("\n⚠️  Warning: API key authentication is disabled!");
         console.warn("Set API_KEY in .env to enable authentication.\n");
