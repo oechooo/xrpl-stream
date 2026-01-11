@@ -9,6 +9,7 @@ const { getClientManager } = require("./src/utils/xrplClient");
 const streamRoutes = require("./src/api/streamRoutes");
 const rlusdRoutes = require("./src/api/rlusdRoutes");
 const m2mDemoRoutes = require("./src/api/m2mDemoRoutes");
+const unifiedRoutes = require("./src/api/unifiedRoutes");
 const {
   configureCORS,
   createRateLimiter,
@@ -110,6 +111,7 @@ if (config.security.enableApiKeyAuth) {
 app.use("/api", validateRequest);
 
 // API Routes
+app.use("/api/unified", unifiedRoutes); // Unified contract-based API
 app.use("/api/stream", streamRoutes); // XRP Payment Channels
 app.use("/api/rlusd", rlusdRoutes); // RLUSD Direct Payments
 
