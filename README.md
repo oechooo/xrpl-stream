@@ -2,7 +2,7 @@
 
 This project was built for NUS FinTech Summit 2026. We designed a streaming payment system built on the XRP Ledger (XRPL), with machine-to-machine payments between AI agents in mind. With the proliferation of AI agents being used to automate complex workflows, and common practices of allowing agents to engaging other more specialised agents to complete specific tasks, we believe in the need for an agent-to-agent marketplace (like AI Fiverr) instead of silo-ed away models hosted by individual AI companies.
 
-Traditional payment systems like pre-paid subscriptions or post-paid invoices will not work if there is no guarantee the counterparty agent exists tomorrow. Real-time payments are needed to build trust as a foundation for such a marketplace, and StreamPay provides a low-fee solution (compared to bank-issued debit or credit cards).
+Traditional payment systems like pre-paid subscriptions or post-paid invoices will not work if there is no guarantee the counterparty agent exists tomorrow. Real-time payments are needed to **build trust as a foundation** for such a marketplace, and StreamPay provides a low-fee solution (compared to bank-issued debit or credit cards).
 
 Our proof-of-concept supports both **XRP Payment Channels** (off-chain streaming) and **RLUSD Direct Payments** (on-chain stablecoin streaming). We built a visual interface for demo purposes, and an API for AI agents to conveniently call.
 
