@@ -6,6 +6,8 @@ Traditional payment systems like pre-paid subscriptions or post-paid invoices wi
 
 Our proof-of-concept supports both **XRP Payment Channels** (off-chain streaming) and **RLUSD Direct Payments** (on-chain stablecoin streaming). We built a visual interface for demo purposes, and an API for AI agents to conveniently call.
 
+Update: Stripe recently introduced a [Machine Payments Protocol](https://stripe.com/blog/machine-payments-protocol) as an API for agent-to-agent payments. This doesn't implement streaming payments, but aligns with how we envisioned our hackathon product to look like!
+
 # How it works
 ![System Design](images/system_slide.png)
 
