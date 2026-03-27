@@ -549,26 +549,32 @@ router.get('/start', async (req, res) => {
         }
       }
       
-      supplierWorkCompleted++;
-      
-      // Store work metrics for summary
+      // Only count and report fully completed units.
       if (workMetrics) {
+        supplierWorkCompleted++;
+
+        // Store work metrics for summary
         demoState.workMetrics.push({
           unitId,
           metrics: workMetrics,
           proof: workProof,
           completedAt: workCompletedAt,
         });
+
+        sendSSE(res, 'work_unit_complete', {
+          unitId,
+          proof: workProof ? workProof.substring(0, 20) + '...' : null,
+          fullProof: workProof,
+          totalCompleted: supplierWorkCompleted,
+          metrics: workMetrics,
+          message: `Work unit ${unitId} completed!`,
+        });
       }
-      
-      sendSSE(res, 'work_unit_complete', {
-        unitId,
-        proof: workProof ? workProof.substring(0, 20) + '...' : null,
-        fullProof: workProof,
-        totalCompleted: supplierWorkCompleted,
-        metrics: workMetrics,
-        message: `Work unit ${unitId} completed!`,
-      });
+
+      // If cancelled before completion of the current unit, stop immediately.
+      if (demoState.status === 'cancelled' && !workMetrics) {
+        break;
+      }
     }
     
     // Deterministic final amount based on completed units.
@@ -672,15 +678,15 @@ router.get('/start', async (req, res) => {
       : `${demoState.verificationsSuccessful}/${CONFIG.totalWorkUnits}`;
     
     // Calculate average verification time
-    const avgVerifyTime = CONFIG.totalWorkUnits > 0 
-      ? Math.round(duration / CONFIG.totalWorkUnits) 
+    const avgVerifyTime = supplierWorkCompleted > 0
+      ? Math.round(duration / supplierWorkCompleted)
       : 0;
     
     sendSSE(res, 'complete', {
       success: true,
       summary: {
         duration: Math.round(duration / 1000),
-        workUnitsCompleted: CONFIG.totalWorkUnits,
+        workUnitsCompleted: supplierWorkCompleted,
         claimsGenerated: demoState.claimsGenerated || 0,
         totalPaid: demoState.totalPaid || '0',
         totalPaidXRP: demoState.totalPaidXRP || '0.000000',

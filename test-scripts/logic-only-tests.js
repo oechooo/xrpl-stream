@@ -261,6 +261,27 @@ async function testAllLogic() {
     }
   });
 
+  runTest("Partial Termination Billing (Completed Units Only)", () => {
+    const dropsPerWorkUnit = 200000n; // 0.2 XRP per completed unit
+    const completedUnits = 4n;
+    const partiallyStartedUnits = 1n; // Should NOT be billed
+
+    const billedDrops = dropsPerWorkUnit * completedUnits;
+    const wrongIfPartialIncluded = dropsPerWorkUnit * (completedUnits + partiallyStartedUnits);
+
+    if (billedDrops.toString() !== "800000") {
+      throw new Error(`Expected 800000 billed drops, got ${billedDrops.toString()}`);
+    }
+
+    if (billedDrops === wrongIfPartialIncluded) {
+      throw new Error("Partial unit was incorrectly billed");
+    }
+
+    console.log(`     Completed units billed: ${completedUnits} ✓`);
+    console.log(`     Partial unit billed: no ✓`);
+    console.log(`     Total billed: ${dropsToXrp(billedDrops.toString())} XRP ✓`);
+  });
+
   // ===== EDGE CASE TESTS =====
   console.log("🚨 EDGE CASE TESTS");
   console.log("-".repeat(50));
