@@ -73,6 +73,48 @@ async function startStream(req, res) {
         });
       }
       
+      // For contracts with duration/totalAmount, validate sufficient balance
+      if (req.body.totalAmount || req.body.duration) {
+        const ratePerSecondBigInt = BigInt(ratePerSecond);
+        let totalRequired = minRequiredBalance; // Default minimum
+        
+        if (req.body.totalAmount) {
+          // RLUSD-style: total amount specified
+          totalRequired = BigInt(Math.floor(parseFloat(req.body.totalAmount) * 1000000));
+        } else if (req.body.duration) {
+          // Duration-based: calculate total from rate * duration
+          const duration = BigInt(req.body.duration);
+          totalRequired = ratePerSecondBigInt * duration;
+        }
+        
+        if (channelBalance < totalRequired) {
+          return res.status(400).json({
+            error: 'Insufficient channel balance for contract terms',
+            message: `Channel has ${(parseInt(channelBalance) / 1000000).toFixed(6)} XRP but contract requires ${(parseInt(totalRequired) / 1000000).toFixed(6)} XRP`,
+            channelBalance: channelBalance.toString(),
+            requiredAmount: totalRequired.toString(),
+          });
+        }
+      }
+      
+      // validate sufficient balance for work units if provided
+      if (req.body.dropsPerWorkUnit && req.body.totalWorkUnits) {
+        const dropsPerWorkUnit = BigInt(req.body.dropsPerWorkUnit);
+        const totalWorkUnits = BigInt(req.body.totalWorkUnits);
+        const totalRequired = dropsPerWorkUnit * totalWorkUnits;
+        
+        if (channelBalance < totalRequired) {
+          return res.status(400).json({
+            error: 'Insufficient channel balance for work units',
+            message: `Channel has ${(parseInt(channelBalance) / 1000000).toFixed(6)} XRP but requires ${(parseInt(totalRequired) / 1000000).toFixed(6)} XRP for ${req.body.totalWorkUnits} work units at ${(parseInt(dropsPerWorkUnit) / 1000000).toFixed(6)} XRP per unit`,
+            channelBalance: channelBalance.toString(),
+            requiredAmount: totalRequired.toString(),
+            dropsPerWorkUnit: req.body.dropsPerWorkUnit,
+            totalWorkUnits: req.body.totalWorkUnits,
+          });
+        }
+      }
+      
       // Create streaming signer
       const signer = new StreamingSigner(wallet, channelId, ratePerSecond);
       signer.start();

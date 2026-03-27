@@ -273,6 +273,66 @@ router.get('/start', async (req, res) => {
     demoState.phase = 'channel';
     sendSSE(res, 'phase', { phase: 'channel', message: 'Creating payment channel on XRPL...' });
     
+    // Validate sender wallet has sufficient balance for channel creation
+    const { getClient } = require('../utils/xrplClient');
+    const client = await getClient();
+    
+    try {
+      const accountInfo = await client.request({
+        command: 'account_info',
+        account: consumerWallet.address,
+        ledger_index: 'validated'
+      });
+      
+      const balanceDrops = BigInt(accountInfo.result.account_data.Balance);
+      const channelAmountDrops = BigInt(CONFIG.channelAmount);
+      const reserveBuffer = BigInt(10000000); // 10 XRP buffer for reserves and fees
+      
+      const requiredDrops = channelAmountDrops + reserveBuffer;
+      
+      if (balanceDrops < requiredDrops) {
+        sendSSE(res, 'error', {
+          message: `Insufficient wallet balance: ${formatDrops(balanceDrops.toString())} XRP available, but need at least ${formatDrops(requiredDrops.toString())} XRP (${formatDrops(CONFIG.channelAmount)} XRP for channel + ${formatDrops(reserveBuffer.toString())} XRP for reserves/fees).`,
+          walletBalance: balanceDrops.toString(),
+          walletBalanceXRP: formatDrops(balanceDrops.toString()),
+          requiredAmount: requiredDrops.toString(),
+          requiredAmountXRP: formatDrops(requiredDrops.toString()),
+          channelAmount: CONFIG.channelAmount,
+          channelAmountXRP: formatDrops(CONFIG.channelAmount),
+          reserveBuffer: reserveBuffer.toString(),
+          reserveBufferXRP: formatDrops(reserveBuffer.toString()),
+        });
+        res.end();
+        return;
+      }
+    } catch (balanceError) {
+      console.error('Error checking wallet balance:', balanceError);
+      sendSSE(res, 'error', {
+        message: 'Failed to check wallet balance. Please ensure the sender wallet is funded.',
+        error: balanceError.message,
+      });
+      res.end();
+      return;
+    }
+    
+    // Validate channel amount is sufficient for total payment BEFORE creating channel
+    const totalPaymentRequired = BigInt(CONFIG.dropsPerWorkUnit) * BigInt(CONFIG.totalWorkUnits);
+    const channelAmountBigInt = BigInt(CONFIG.channelAmount);
+    
+    if (channelAmountBigInt < totalPaymentRequired) {
+      sendSSE(res, 'error', {
+        message: `Insufficient channel amount: ${formatDrops(CONFIG.channelAmount)} XRP provided, but ${formatDrops(totalPaymentRequired.toString())} XRP required for ${CONFIG.totalWorkUnits} work units at ${formatDrops(CONFIG.dropsPerWorkUnit.toString())} XRP per unit.`,
+        channelAmount: CONFIG.channelAmount,
+        channelAmountXRP: formatDrops(CONFIG.channelAmount),
+        totalRequired: totalPaymentRequired.toString(),
+        totalRequiredXRP: formatDrops(totalPaymentRequired.toString()),
+        dropsPerWorkUnit: CONFIG.dropsPerWorkUnit,
+        totalWorkUnits: CONFIG.totalWorkUnits,
+      });
+      res.end();
+      return;
+    }
+    
     const channelResult = await createChannel(
       consumerWallet,
       supplierWallet.address,
@@ -322,14 +382,6 @@ router.get('/start', async (req, res) => {
     demoState.phase = 'streaming';
     sendSSE(res, 'phase', { phase: 'streaming', message: 'Starting streaming sessions...' });
     
-    // Create streaming signer for consumer
-    const signer = new StreamingSigner(
-      consumerWallet,
-      channelResult.channelId,
-      CONFIG.dropsPerWorkUnit
-    );
-    signer.start();
-    
     // Create validator for supplier
     const validator = new StreamingValidator(
       channelResult.channelId,
@@ -372,7 +424,6 @@ router.get('/start', async (req, res) => {
       // Simulate work with progress updates
       const progressSteps = 10;
       const stepDuration = CONFIG.workDurationMs / progressSteps;
-      let paymentsThisUnit = 0;
       let workMetrics = null;
       let workProof = null;
       let workCompletedAt = null;
@@ -393,56 +444,18 @@ router.get('/start', async (req, res) => {
           message: `Work unit ${unitId}: ${supplierWorkProgress}% complete`,
         });
         
-        // Generate and validate payment at key points (steps 3, 6, 9)
-        if (step % 3 === 0 && step < progressSteps && paymentsThisUnit < 3) {
-          const claim = signer.signCurrentClaim();
-          const validation = await validator.validateStreamingClaim(claim.amount, claim.signature);
-          
-          if (validation.valid) {
-            demoState.totalPaid = claim.amount;
-            demoState.totalPaidXRP = formatDrops(claim.amount);
-            demoState.claimsGenerated++;
-            paymentsThisUnit++;
-            
-            // Store claim
-            const store = getChannelStore();
-            await store.addClaimToHistory(channelResult.channelId, {
-              amount: claim.amount,
-              signature: claim.signature,
-              publicKey: claim.publicKey,
-            });
-            
-            sendSSE(res, 'payment', {
-              claimNumber: demoState.claimsGenerated,
-              amount: claim.amount,
-              amountXRP: formatDrops(claim.amount),
-              verified: true,
-              unitId,
-              message: `Payment claim: ${formatDrops(claim.amount)} XRP accumulated`,
-            });
-            
-            // Add to transactions
-            const txData = {
-              type: 'claim',
-              timestamp: Date.now(),
-              from: consumerWallet.address,
-              to: supplierWallet.address,
-              amount: claim.amount,
-              amountXRP: formatDrops(claim.amount),
-              claimNumber: demoState.claimsGenerated,
-              description: `Claim #${demoState.claimsGenerated} - Streaming payment`,
-              verified: true,
-              proof: null,
-              fullProof: null,
-            };
-            
-            demoState.transactions.push(txData);
-            sendSSE(res, 'transaction', txData);
-          }
-        }
-        
         // Generate work metrics and proof when work is done (at 100%)
         if (step === progressSteps) {
+          // Deterministic billing: one cumulative claim per completed work unit.
+          const expectedClaimAmount = (
+            BigInt(CONFIG.dropsPerWorkUnit) * BigInt(unitId)
+          ).toString();
+          const finalClaim = signClaim(
+            consumerWallet,
+            channelResult.channelId,
+            expectedClaimAmount
+          );
+
           workCompletedAt = Date.now();
           workMetrics = {
             cpuCycles: Math.floor(Math.random() * 1000000) + 500000,
@@ -486,7 +499,6 @@ router.get('/start', async (req, res) => {
           });
           
           // Final payment for this work unit after verification
-          const finalClaim = signer.signCurrentClaim();
           const finalValidation = await validator.validateStreamingClaim(finalClaim.amount, finalClaim.signature);
           
           if (finalValidation.valid) {
@@ -559,13 +571,12 @@ router.get('/start', async (req, res) => {
       });
     }
     
-    // Get final amount BEFORE stopping (stop() sets isActive=false which resets the calculation)
-    const finalAmount = signer.getCurrentAmount();
+    // Deterministic final amount based on completed units.
+    const finalAmount = (
+      BigInt(CONFIG.dropsPerWorkUnit) * BigInt(supplierWorkCompleted)
+    ).toString();
     demoState.totalPaid = finalAmount;
     demoState.totalPaidXRP = formatDrops(finalAmount);
-    
-    // Now stop the signer
-    signer.stop();
     
     // ═══════════════════════════════════════════════════════════════════════
     // PHASE 4: FINALIZATION

@@ -136,9 +136,27 @@ function createContract(contractData, providerId) {
     if (!contractData.totalAmount || !contractData.duration) {
       throw new Error('RLUSD contracts require totalAmount and duration');
     }
+    
+    // Validate RLUSD amounts
+    const totalAmount = parseFloat(contractData.totalAmount);
+    if (totalAmount <= 0 || totalAmount > 10000) {
+      throw new Error('RLUSD totalAmount must be between 0.01 and 10000');
+    }
+    
+    const duration = parseInt(contractData.duration);
+    if (duration <= 0 || duration > 86400) { // Max 24 hours
+      throw new Error('RLUSD duration must be between 1 and 86400 seconds');
+    }
+    
   } else if (contractData.currency === 'XRP') {
     if (!contractData.ratePerSecond) {
       throw new Error('XRP contracts require ratePerSecond');
+    }
+    
+    // Validate XRP rate (drops per second)
+    const ratePerSecond = parseInt(contractData.ratePerSecond);
+    if (ratePerSecond <= 0 || ratePerSecond > 10000000) { // Max 10 XRP/sec
+      throw new Error('XRP ratePerSecond must be between 1 and 10000000 drops/second (0.00001 to 10 XRP/sec)');
     }
   }
   

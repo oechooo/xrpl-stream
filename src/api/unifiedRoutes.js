@@ -78,6 +78,42 @@ router.post("/start", async (req, res) => {
       contractId,
     };
     
+    // Pre-validate contract terms before starting stream
+    if (contract.currency === 'XRP' && contract.ratePerSecond) {
+      // For XRP contracts, we can't validate total amount since they're continuous,
+      // but we can validate the rate is reasonable
+      const ratePerSecond = parseInt(contract.ratePerSecond);
+      if (ratePerSecond <= 0 || ratePerSecond > 10000000) {
+        return res.status(400).json({
+          error: 'Invalid contract rate',
+          message: 'XRP ratePerSecond must be between 1 and 10000000 drops/second',
+          contractId,
+          ratePerSecond: contract.ratePerSecond,
+        });
+      }
+    } else if (contract.currency === 'RLUSD' && contract.totalAmount && contract.duration) {
+      const totalAmount = parseFloat(contract.totalAmount);
+      const duration = parseInt(contract.duration);
+      
+      if (totalAmount <= 0 || totalAmount > 10000) {
+        return res.status(400).json({
+          error: 'Invalid contract amount',
+          message: 'RLUSD totalAmount must be between 0.01 and 10000',
+          contractId,
+          totalAmount: contract.totalAmount,
+        });
+      }
+      
+      if (duration <= 0 || duration > 86400) {
+        return res.status(400).json({
+          error: 'Invalid contract duration',
+          message: 'Duration must be between 1 and 86400 seconds',
+          contractId,
+          duration: contract.duration,
+        });
+      }
+    }
+    
     console.log(`📋 Starting stream with contract: ${contractId} (${contract.description})`)
     
     // Start the stream using appropriate handler
